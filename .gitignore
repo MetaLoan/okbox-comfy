@@ -1,0 +1,4 @@
+key.env
+*.env
+deploy_wan_nsfw.sh
+*.zip
