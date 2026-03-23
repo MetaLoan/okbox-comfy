@@ -56,7 +56,17 @@ mkdir -p $COMFY_DIR/custom_nodes
 cd $COMFY_DIR/custom_nodes
 git clone https://github.com/rgthree/rgthree-comfy.git 2>/dev/null || true
 git clone https://github.com/kijai/ComfyUI-KJNodes.git 2>/dev/null || true
-pip install -r rgthree-comfy/requirements.txt 2>/dev/null || true
+
+PIPBIN="pip"
+if [ -f "$COMFY_DIR/.venv-cu128/bin/pip" ]; then
+    PIPBIN="$COMFY_DIR/.venv-cu128/bin/pip"
+elif [ -f "$COMFY_DIR/venv/bin/pip" ]; then
+    PIPBIN="$COMFY_DIR/venv/bin/pip"
+fi
+
+$PIPBIN install sageattention 2>/dev/null || true
+$PIPBIN install -r rgthree-comfy/requirements.txt 2>/dev/null || true
+$PIPBIN install -r ComfyUI-KJNodes/requirements.txt 2>/dev/null || true
 
 echo "📥 开始巨容量模型安全下发，彻底降临至副盘..."
 mkdir -p $COMFY_DIR/models/diffusion_models
