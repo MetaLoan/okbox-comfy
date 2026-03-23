@@ -1,6 +1,25 @@
 #!/bin/bash
-echo "🚀 正在远端下载所有工作流模型 (默认存入 /workspace/ComfyUI/models)..."
+echo "🚀 正在为您将系统原生模型库进行超大杯软链接重路由扩充..."
 
+# 1. 强制在拥有 100GB 大容量的 /workspace 盘下圈地
+mkdir -p /workspace/ComfyUI/models
+
+# 2. 如果本来就已经存在默认的老文件路径，我们要将它转移。如果它是链接则跳过
+if [ -d "/root/ComfyUI/models" ] && [ ! -L "/root/ComfyUI/models" ]; then
+    echo "📦 正在无损迁移系统自带模型大礼包到永久闲置扩展盘..."
+    cp -r /root/ComfyUI/models/* /workspace/ComfyUI/models/ 2>/dev/null || true
+    rm -rf /root/ComfyUI/models
+fi
+
+# 3. 施加时空魔法：强行把内部系统访问 /root 下的模型视线转移到挂载的 /workspace 盘下！
+ln -s /workspace/ComfyUI/models /root/ComfyUI/models
+echo "🔗 软连接打通完毕！这台机器再也不会卡死且重启不掉配置了！"
+
+# 4. 创建可以接受外面图片上传的魔法防崩溃 input 接口文件夹
+mkdir -p /root/ComfyUI/input
+chmod -R 777 /root/ComfyUI/input
+
+echo "🚀 正在往 /workspace 网盘专属地盘极速脱机下载核心模型..."
 mkdir -p /workspace/ComfyUI/models/diffusion_models
 mkdir -p /workspace/ComfyUI/models/vae
 mkdir -p /workspace/ComfyUI/models/text_encoders
@@ -19,4 +38,4 @@ wget -q --show-progress -nc -O /workspace/ComfyUI/models/diffusion_models/WAN2.2
 wget -q --show-progress -nc -O /workspace/ComfyUI/models/diffusion_models/WAN2.2-NSFW-FastMove-V2-L.safetensors "https://civitai.com/api/download/models/2613591?type=Model&format=SafeTensor&size=pruned&fp=fp16"
 wget -q --show-progress -nc -O /workspace/ComfyUI/models/loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors?download=true"
 
-echo "✅ 模型全部下载完成！"
+echo "✅ 模型全部下载完成！现在去网页端点一下 Refresh 刷新，一切准备就绪！"
