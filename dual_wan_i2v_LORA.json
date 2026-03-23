@@ -1,6 +1,6 @@
 {
-  "last_node_id": 106,
-  "last_link_id": 207,
+  "last_node_id": 151,
+  "last_link_id": 115,
   "nodes": [
     {
       "id": 8,
@@ -505,7 +505,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 110
+          "link": 113
         }
       ],
       "outputs": [
@@ -577,7 +577,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 200
+          "link": 115
         }
       ],
       "outputs": [
@@ -724,7 +724,7 @@
       ]
     },
     {
-      "id": 104,
+      "id": 150,
       "type": "LoraLoaderModelOnly",
       "pos": [
         380,
@@ -735,13 +735,13 @@
         82
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 205
+          "link": 112
         }
       ],
       "outputs": [
@@ -749,7 +749,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            110
+            113
           ],
           "slot_index": 0
         }
@@ -758,13 +758,13 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "wan2.2/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors",
+        "23High_noise-Cumshot_Aesthetics.safetensors",
         1.0
       ],
-      "title": "LoRA (HIGH path)"
+      "title": "LoraLoaderModelOnly HIGH"
     },
     {
-      "id": 105,
+      "id": 151,
       "type": "LoraLoaderModelOnly",
       "pos": [
         380,
@@ -781,7 +781,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 206
+          "link": 114
         }
       ],
       "outputs": [
@@ -789,7 +789,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            207
+            115
           ],
           "slot_index": 0
         }
@@ -798,50 +798,10 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "wan2.2/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors",
+        "56Low_noise-Cumshot_Aesthetics.safetensors",
         1.0
       ],
-      "title": "LoRA 1 (LOW path)"
-    },
-    {
-      "id": 106,
-      "type": "LoraLoaderModelOnly",
-      "pos": [
-        380,
-        320
-      ],
-      "size": [
-        315,
-        82
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 207
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            200
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoraLoaderModelOnly"
-      },
-      "widgets_values": [
-        "wan2.2/Wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
-        1.0
-      ],
-      "title": "LoRA 2 (LOW path)"
+      "title": "LoraLoaderModelOnly LOW"
     }
   ],
   "links": [
@@ -974,26 +934,10 @@
       "IMAGE"
     ],
     [
-      110,
-      104,
-      0,
-      54,
-      0,
-      "MODEL"
-    ],
-    [
       111,
       54,
       0,
       102,
-      0,
-      "MODEL"
-    ],
-    [
-      200,
-      106,
-      0,
-      101,
       0,
       "MODEL"
     ],
@@ -1030,26 +974,34 @@
       "CONDITIONING"
     ],
     [
-      205,
+      112,
       37,
       0,
-      104,
+      150,
       0,
       "MODEL"
     ],
     [
-      206,
+      113,
+      150,
+      0,
+      54,
+      0,
+      "MODEL"
+    ],
+    [
+      114,
       100,
       0,
-      105,
+      151,
       0,
       "MODEL"
     ],
     [
-      207,
-      105,
+      115,
+      151,
       0,
-      106,
+      101,
       0,
       "MODEL"
     ]
