@@ -103,6 +103,18 @@ def process_job(job):
         if "151" in graph: del graph["151"]
     else:
         try:
+            if not os.path.exists(REGISTRY_PATH):
+                print(f"Registry not found, auto-building default at {REGISTRY_PATH}")
+                os.makedirs(os.path.dirname(REGISTRY_PATH), exist_ok=True)
+                default_registry = {
+                    "anime_cumshot": {
+                        "high": "23High_noise-Cumshot_Aesthetics.safetensors",
+                        "low": "56Low_noise-Cumshot_Aesthetics.safetensors"
+                    }
+                }
+                with open(REGISTRY_PATH, 'w', encoding='utf-8') as rf:
+                    json.dump(default_registry, rf, indent=2)
+
             with open(REGISTRY_PATH, 'r', encoding='utf-8') as f:
                 registry = json.load(f)
             
