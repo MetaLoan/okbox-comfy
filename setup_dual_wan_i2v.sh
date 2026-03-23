@@ -57,6 +57,7 @@ mkdir -p $COMFY_DIR/models/diffusion_models
 mkdir -p $COMFY_DIR/models/vae
 mkdir -p $COMFY_DIR/models/text_encoders
 mkdir -p $COMFY_DIR/models/clip_vision
+mkdir -p $COMFY_DIR/models/loras
 
 wget -q --show-progress -nc -O $COMFY_DIR/models/vae/wan_2.1_vae.safetensors "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors?download=true"
 wget -q --show-progress -nc -O $COMFY_DIR/models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors?download=true"
