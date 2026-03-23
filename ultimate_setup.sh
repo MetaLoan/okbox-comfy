@@ -10,7 +10,8 @@ fi
 
 # 1. 寻找这台机器的真实 ComfyUI 躲在哪里
 COMFY_DIR=""
-for path in /comfyui /src/ComfyUI /root/ComfyUI /opt/ComfyUI $WORKSPACE_DIR/ComfyUI; do
+# 增加深度侦测，优先查找真正可能在跑的目录（如 runpod-slim）
+for path in /workspace/runpod-slim/ComfyUI /runpod-volume/runpod-slim/ComfyUI $WORKSPACE_DIR/ComfyUI /comfyui /src/ComfyUI /root/ComfyUI /opt/ComfyUI; do
     if [ -f "$path/main.py" ]; then
         COMFY_DIR="$path"
         break
@@ -26,10 +27,17 @@ if [ -z "$COMFY_DIR" ]; then
     COMFY_DIR="$WORKSPACE_DIR/ComfyUI"
     echo "✅ 全新 ComfyUI 安装完毕，天然生长在永久副盘！"
 else
-    echo "🎯 侦测到了云服务器自带的 ComfyUI，当前病态位置位于：$COMFY_DIR （极可能在主盘！）"
+    echo "🎯 精准侦测到正在运行的 ComfyUI，当前位置位于：$COMFY_DIR "
     echo "🔄 正在使用空间魔法转移一切阵地到永久网络副盘（$WORKSPACE_DIR）中..."
     mkdir -p $WORKSPACE_DIR/my_stable_models
     
+    # 【灾难恢复机制】如果上次脚本安装错了位置（跑去装了个空的 ComfyUI），赶紧把里面下好的模型转移抢救出来
+    if [ -d "$WORKSPACE_DIR/ComfyUI/models" ] && [ "$COMFY_DIR" != "$WORKSPACE_DIR/ComfyUI" ]; then
+        echo "♻️ 正在智能回收上次下载偏离的模型资源..."
+        cp -rn $WORKSPACE_DIR/ComfyUI/models/* $WORKSPACE_DIR/my_stable_models/ 2>/dev/null || true
+        rm -rf $WORKSPACE_DIR/ComfyUI 2>/dev/null || true
+    fi
+
     if [ ! -L "$COMFY_DIR/models" ]; then
         cp -rn $COMFY_DIR/models/* $WORKSPACE_DIR/my_stable_models/ 2>/dev/null || true
         rm -rf $COMFY_DIR/models
