@@ -1,8 +1,16 @@
 #!/bin/bash
-echo "🚀 终极版无人值守部署启动！防爆硬盘+全自动节点补齐+模型拉取..."
+echo "🚀 终极版无人值守部署启动！智能防爆盘+全自动节点补齐+模型拉取..."
 
+# 0. 智能研判永久云盘的挂载点
+WORKSPACE_DIR="/workspace"
+if [ -d "/runpod-volume" ]; then
+    echo "💡 侦测到了 Network Volume (网络共享云盘) 的挂载特征！主盘口已自动无缝切换至 /runpod-volume！"
+    WORKSPACE_DIR="/runpod-volume"
+fi
+
+# 1. 寻找这台机器的真实 ComfyUI 躲在哪里
 COMFY_DIR=""
-for path in /comfyui /src/ComfyUI /root/ComfyUI /opt/ComfyUI /workspace/ComfyUI; do
+for path in /comfyui /src/ComfyUI /root/ComfyUI /opt/ComfyUI $WORKSPACE_DIR/ComfyUI; do
     if [ -f "$path/main.py" ]; then
         COMFY_DIR="$path"
         break
@@ -10,26 +18,26 @@ for path in /comfyui /src/ComfyUI /root/ComfyUI /opt/ComfyUI /workspace/ComfyUI;
 done
 
 if [ -z "$COMFY_DIR" ]; then
-    echo "❌ 没找到内置 ComfyUI！正在 /workspace 这块 100GB 永久超大副盘下，为您执行全新纯净版物理安装..."
-    cd /workspace
+    echo "❌ 没找到内置 ComfyUI！正在为您执行全新纯净版物理安装到安全副盘..."
+    cd $WORKSPACE_DIR
     git clone https://github.com/comfyanonymous/ComfyUI.git
     cd ComfyUI
     pip install -r requirements.txt
-    COMFY_DIR="/workspace/ComfyUI"
-    echo "✅ 全新 ComfyUI 安装完毕，天然生长在永久副盘，永不爆碎主盘！"
+    COMFY_DIR="$WORKSPACE_DIR/ComfyUI"
+    echo "✅ 全新 ComfyUI 安装完毕，天然生长在永久副盘！"
 else
     echo "🎯 侦测到了云服务器自带的 ComfyUI，当前病态位置位于：$COMFY_DIR （极可能在主盘！）"
-    echo "🔄 正在使用空间魔法转移一切阵地到 100GB 永久网络副盘（/workspace）中..."
-    mkdir -p /workspace/my_stable_models
+    echo "🔄 正在使用空间魔法转移一切阵地到永久网络副盘（$WORKSPACE_DIR）中..."
+    mkdir -p $WORKSPACE_DIR/my_stable_models
     
     if [ ! -L "$COMFY_DIR/models" ]; then
-        cp -rn $COMFY_DIR/models/* /workspace/my_stable_models/ 2>/dev/null || true
+        cp -rn $COMFY_DIR/models/* $WORKSPACE_DIR/my_stable_models/ 2>/dev/null || true
         rm -rf $COMFY_DIR/models
-        ln -s /workspace/my_stable_models $COMFY_DIR/models
+        ln -s $WORKSPACE_DIR/my_stable_models $COMFY_DIR/models
     fi
 fi
 
-echo "🔍 【最终验证】查阅系统视角下 models 目录的真面目（如果是软链接指向 /workspace 证明完全转移至副盘）："
+echo "🔍 【最终验证】查阅软链接是否已指向安全副盘 $WORKSPACE_DIR ："
 ls -ld $COMFY_DIR/models
 echo "--------------------------------------------------------"
 
@@ -42,10 +50,9 @@ mkdir -p $COMFY_DIR/custom_nodes
 cd $COMFY_DIR/custom_nodes
 git clone https://github.com/rgthree/rgthree-comfy.git 2>/dev/null || true
 git clone https://github.com/kijai/ComfyUI-KJNodes.git 2>/dev/null || true
-# 部分节点需要特定依赖
 pip install -r rgthree-comfy/requirements.txt 2>/dev/null || true
 
-echo "📥 开始巨容量模型（30GB+）安全下发，统统降临至 $COMFY_DIR/models 背后实际的 /workspace 副盘中..."
+echo "📥 开始巨容量模型安全下发，彻底降临至副盘..."
 mkdir -p $COMFY_DIR/models/diffusion_models
 mkdir -p $COMFY_DIR/models/vae
 mkdir -p $COMFY_DIR/models/text_encoders
