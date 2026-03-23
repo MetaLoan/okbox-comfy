@@ -38,6 +38,11 @@ echo "⏫ 执行新版 ComfyUI 内核升级，避免 load_unet 遭遇 FP8 模型
 cd $COMFY_DIR && git stash 2>/dev/null || true
 git pull 2>/dev/null || true
 
+echo "🔋 强制同步运行环境与依赖包 (防御 NumPy/PyTorch 版本撕裂问题)..."
+pip install -r requirements.txt 2>/dev/null || true
+pip install "numpy<2" 2>/dev/null || true
+pip install torch torchvision torchaudio --upgrade --extra-index-url https://download.pytorch.org/whl/cu121 2>/dev/null || true
+
 # Folder Setup
 mkdir -p $COMFY_DIR/input $COMFY_DIR/output
 chmod -R 777 $COMFY_DIR/input $COMFY_DIR/output
