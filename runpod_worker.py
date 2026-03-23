@@ -38,7 +38,8 @@ def start_comfyui():
         print("[DIAG] WARNING: /runpod-volume does NOT exist!", flush=True)
 
     process = subprocess.Popen(
-        ["python", "-u", "main.py", "--listen", "0.0.0.0", "--port", "8188"],
+        ["python", "-u", "main.py", "--listen", "0.0.0.0", "--port", "8188",
+         "--extra-model-paths-config", f"{COMFY_DIR}/extra_model_paths.yaml"],
         cwd=COMFY_DIR,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -241,28 +242,56 @@ def process_job(job):
     print(f"Queued ID: {prompt_id}. Awaiting completion...", flush=True)
     wait_for_execution(client_id, prompt_id)
 
-    # Collect outputs
+    # Collect outputs - SaveImage produces PNG frames
     history = fetch_history(prompt_id)
     outputs = history.get(prompt_id, {}).get('outputs', {})
     encoded_videos = []
 
-    # Try multiple output node formats
-    for node_id in ["47", "8"]:
-        if node_id in outputs:
-            node_out = outputs[node_id]
-            # Check for video files (gifs key used by VHS and others)
-            for key in ["gifs", "videos", "images"]:
-                if key in node_out:
-                    for file_info in node_out[key]:
-                        fname = file_info.get("filename", "")
-                        subfolder = file_info.get("subfolder", "")
-                        filepath = os.path.join(OUTPUT_DIR, subfolder, fname)
-                        if os.path.exists(filepath):
-                            with open(filepath, "rb") as vf:
-                                encoded_str = base64.b64encode(vf.read()).decode('utf-8')
-                                ext = fname.rsplit('.', 1)[-1] if '.' in fname else 'webm'
-                                encoded_videos.append(f"data:video/{ext};base64,{encoded_str}")
-                            os.remove(filepath)
+    # Node 47 is SaveImage, produces images
+    if "47" in outputs and "images" in outputs["47"]:
+        image_files = []
+        for img_info in outputs["47"]["images"]:
+            fname = img_info.get("filename", "")
+            subfolder = img_info.get("subfolder", "")
+            filepath = os.path.join(OUTPUT_DIR, subfolder, fname)
+            if os.path.exists(filepath):
+                image_files.append(filepath)
+
+        if image_files:
+            image_files.sort()  # Ensure frame order
+            # Use ffmpeg to combine frames into video
+            output_video = os.path.join(OUTPUT_DIR, f"serverless_{prompt_id}.mp4")
+            # Create a file list for ffmpeg
+            list_file = os.path.join(OUTPUT_DIR, "frames.txt")
+            with open(list_file, 'w') as lf:
+                for img_path in image_files:
+                    lf.write(f"file '{img_path}'\n")
+                    lf.write(f"duration {1.0/24}\n")  # 24fps
+
+            ffmpeg_cmd = [
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                "-i", list_file,
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                output_video
+            ]
+            print(f"Running ffmpeg: {' '.join(ffmpeg_cmd)}", flush=True)
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"ffmpeg error: {result.stderr}", flush=True)
+
+            if os.path.exists(output_video):
+                with open(output_video, "rb") as vf:
+                    encoded_str = base64.b64encode(vf.read()).decode('utf-8')
+                    encoded_videos.append(f"data:video/mp4;base64,{encoded_str}")
+                os.remove(output_video)
+
+            # Cleanup frame images
+            for img_path in image_files:
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+            if os.path.exists(list_file):
+                os.remove(list_file)
 
     # Cleanup input image
     input_path = os.path.join(INPUT_DIR, input_filename)

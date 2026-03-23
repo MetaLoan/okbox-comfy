@@ -1,0 +1,7 @@
+network_volume:
+    base_path: /runpod-volume/my_stable_models/
+    diffusion_models: diffusion_models
+    vae: vae
+    clip: text_encoders
+    clip_vision: clip_vision
+    loras: loras

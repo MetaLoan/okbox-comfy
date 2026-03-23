@@ -15,13 +15,11 @@ RUN pip install -r requirements.txt
 # Install Serverless dependencies
 RUN pip install runpod websocket-client requests sageattention
 
-# Add the ComfyUI-VideoHelperSuite for WebM output formats
-RUN cd custom_nodes && \
-    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
-    cd ComfyUI-VideoHelperSuite && pip install -r requirements.txt
-
 # Bridge routing the blank instance's models folder to the persistent Network Volume
 RUN rm -rf /workspace/ComfyUI/models && ln -s /runpod-volume/my_stable_models /workspace/ComfyUI/models
+
+# Copy extra_model_paths.yaml for explicit model scanning of the network volume
+COPY extra_model_paths.yaml /workspace/ComfyUI/extra_model_paths.yaml
 
 # Pull in custom Serverless execution files
 COPY dual_wan_i2v_api.json /workspace/dual_wan_i2v_api.json

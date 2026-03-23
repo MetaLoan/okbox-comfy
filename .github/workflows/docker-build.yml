@@ -39,4 +39,4 @@ jobs:
           context: .
           file: ./Dockerfile.serverless
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:serverless-v3
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:serverless-v4
