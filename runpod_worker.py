@@ -53,8 +53,12 @@ def queue_prompt(workflow):
         with urllib.request.urlopen(req) as response:
             res = json.loads(response.read())
             return res.get('prompt_id'), client_id
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='replace')
+        print(f"HTTP Error {e.code} queueing prompt: {error_body}", flush=True)
+        return None, None
     except urllib.error.URLError as e:
-        print(f"Error queueing prompt: {e}")
+        print(f"URL Error queueing prompt: {e}", flush=True)
         return None, None
 
 def wait_for_execution(client_id, prompt_id):
