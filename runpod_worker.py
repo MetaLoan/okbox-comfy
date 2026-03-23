@@ -15,21 +15,34 @@ REGISTRY_PATH = "/runpod-volume/my_stable_models/lora_style_registry.json"
 OUTPUT_DIR = "/workspace/ComfyUI/output"
 
 def start_comfyui():
-    print("Starting ComfyUI server in the background...")
-    subprocess.Popen(
-        ["python", "main.py", "--dont-print-signature"],
-        cwd="/workspace/ComfyUI"
+    print("Starting ComfyUI server in the background...", flush=True)
+    process = subprocess.Popen(
+        ["python", "-u", "main.py", "--dont-print-signature", "--port", "8188"],
+        cwd="/workspace/ComfyUI",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
     )
+    
+    import threading
+    def stream_logs():
+        for line in process.stdout:
+            print(f"[ComfyUI] {line.strip()}", flush=True)
+    threading.Thread(target=stream_logs, daemon=True).start()
+    
     # Wait for the API to be ready
     while True:
+        if process.poll() is not None:
+            print(f"FATAL: ComfyUI process died unexpectedly with code {process.returncode}!", flush=True)
+            break
         try:
             req = urllib.request.Request(f"http://{COMFY_URL}/system_stats")
             urllib.request.urlopen(req, timeout=1)
-            print("ComfyUI API is responsive and ready!")
+            print("ComfyUI API is responsive and ready!", flush=True)
             break
         except urllib.error.URLError:
             time.sleep(1)
-            print("Waiting for ComfyUI to start...")
+            print("Waiting for ComfyUI to start...", flush=True)
 
 def queue_prompt(workflow):
     client_id = str(uuid.uuid4())
