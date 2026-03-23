@@ -161,6 +161,22 @@ def process_job(job):
     job_input = job.get('input', {})
     print(f"Received Serverless payload: {json.dumps(job_input, ensure_ascii=False)[:500]}", flush=True)
 
+    # Inline volume diagnostic - runs with every job
+    vol = "/runpod-volume"
+    if os.path.exists(vol):
+        print(f"[VOL-DIAG] /runpod-volume exists! Top-level: {os.listdir(vol)}", flush=True)
+        msm = os.path.join(vol, "my_stable_models")
+        if os.path.exists(msm):
+            for subdir in sorted(os.listdir(msm)):
+                full = os.path.join(msm, subdir)
+                if os.path.isdir(full):
+                    files = os.listdir(full)
+                    print(f"[VOL-DIAG]   {subdir}/: {files}", flush=True)
+        else:
+            print(f"[VOL-DIAG] WARNING: my_stable_models NOT found! Contents: {os.listdir(vol)}", flush=True)
+    else:
+        print("[VOL-DIAG] CRITICAL: /runpod-volume does NOT exist!", flush=True)
+
     # Extract parameters
     pos_prompt = job_input.get('positive_prompt', "High quality anime style, masterpiece")
     neg_prompt = job_input.get('negative_prompt', "ugly, deformation")
