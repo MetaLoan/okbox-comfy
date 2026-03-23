@@ -19,6 +19,19 @@ curl -s -L "https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/ultimate
 
 ---
 
+## 🚀 极简骨架版：Dual Wan I2V 专用部署指令
+
+如果您仅仅只使用化繁为简的纯净版工作流 `dual_wan_i2v.json`（仅仅保留主副双节点，去掉了所有干扰的高级 LoRA 和多余第三方查偏节点），请使用下面这个**超级轻量级脱水版脚本**！
+
+👉 **它剥离了几十个 G 的非必要环境包，只精准下达最核心的几个张量引擎！速度快三倍！且内部已经集成了一键升级内核以防止旧版 FP8 解码器崩溃崩爆显存的终极防护代码：**
+
+```bash
+curl -s -L "https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/setup_dual_wan_i2v.sh?v=\$RANDOM" | bash
+```
+> **🌟 注意事项**：执行完毕以后，如果是旧容器一定记得按下 Web 界面的 **Restart（重启核心）** 按钮，让底层的 FP8 自动升级代码生效。
+
+---
+
 ## 🏗️ 核心底层逻辑与镜像选择
 
 最致命的踩坑：**不要尝试使用任何打包好 ComfyUI 的第三方神仙 Docker 镜像。**
