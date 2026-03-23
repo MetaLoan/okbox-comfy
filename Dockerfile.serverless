@@ -1,0 +1,30 @@
+# Start from a lightweight CUDA + PyTorch base
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+
+RUN apt-get update && apt-get install -y git ffmpeg tzdata && rm -rf /var/lib/apt/lists/*
+ENV TZ=Asia/Shanghai
+
+WORKDIR /workspace
+
+# Install the backbone internal ComfyUI
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git
+WORKDIR /workspace/ComfyUI
+
+# Install core ComfyUI python dependencies
+RUN pip install -r requirements.txt
+# Install Serverless dependencies
+RUN pip install runpod websocket-client requests sageattention
+
+# Add the ComfyUI-VideoHelperSuite for WebM output formats
+RUN cd custom_nodes && \
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
+    cd ComfyUI-VideoHelperSuite && pip install -r requirements.txt
+
+# Bridge routing the blank instance's models folder to the persistent Network Volume
+RUN rm -rf /workspace/ComfyUI/models && ln -s /runpod-volume/my_stable_models /workspace/ComfyUI/models
+
+# Pull in custom Serverless execution files
+COPY dual_wan_i2v_api.json /workspace/dual_wan_i2v_api.json
+COPY runpod_worker.py /workspace/runpod_worker.py
+
+CMD ["python", "-u", "/workspace/runpod_worker.py"]
