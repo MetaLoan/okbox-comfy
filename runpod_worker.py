@@ -1,4 +1,7 @@
 import os
+# CRITICAL: Disable cuDNN before any torch import - RTX 5090 Blackwell compatibility
+os.environ['TORCH_CUDNN_V8_API_DISABLED'] = '1'
+
 import json
 import time
 import base64
@@ -7,8 +10,18 @@ import subprocess
 import urllib.error
 import uuid
 import random
+import requests
 import runpod
 import websocket
+
+# Disable cuDNN at runtime level for Blackwell GPU compatibility
+try:
+    import torch
+    torch.backends.cudnn.enabled = False
+    print(f"[INIT] cuDNN disabled for Blackwell GPU compatibility", flush=True)
+    print(f"[INIT] PyTorch {torch.__version__}, CUDA {torch.version.cuda}", flush=True)
+except Exception as e:
+    print(f"[INIT] torch import note: {e}", flush=True)
 
 COMFY_URL = "127.0.0.1:8188"
 API_JSON_PATH = "/workspace/dual_wan_i2v_api.json"
@@ -260,61 +273,122 @@ def process_job(job):
 
     # Collect outputs - SaveImage produces PNG frames
     history = fetch_history(prompt_id)
-    outputs = history.get(prompt_id, {}).get('outputs', {})
-    encoded_videos = []
+    print(f"[OUTPUT] Full history keys: {list(history.keys())}", flush=True)
 
-    # Node 47 is SaveImage, produces images
-    if "47" in outputs and "images" in outputs["47"]:
-        image_files = []
-        for img_info in outputs["47"]["images"]:
-            fname = img_info.get("filename", "")
-            subfolder = img_info.get("subfolder", "")
-            filepath = os.path.join(OUTPUT_DIR, subfolder, fname)
-            if os.path.exists(filepath):
-                image_files.append(filepath)
+    prompt_output = history.get(prompt_id, {})
+    outputs = prompt_output.get('outputs', {})
+    print(f"[OUTPUT] Output node IDs: {list(outputs.keys())}", flush=True)
+    for nid, nout in outputs.items():
+        print(f"[OUTPUT] Node {nid}: keys={list(nout.keys())}, summary={str(nout)[:300]}", flush=True)
 
-        if image_files:
-            image_files.sort()  # Ensure frame order
-            # Use ffmpeg to combine frames into video
-            output_video = os.path.join(OUTPUT_DIR, f"serverless_{prompt_id}.mp4")
-            # Create a file list for ffmpeg
+    # Collect all output images from any node
+    image_files = []
+    for node_id in outputs:
+        node_out = outputs[node_id]
+        if "images" in node_out:
+            for img_info in node_out["images"]:
+                fname = img_info.get("filename", "")
+                subfolder = img_info.get("subfolder", "")
+                filepath = os.path.join(OUTPUT_DIR, subfolder, fname)
+                print(f"[OUTPUT] Found image: {filepath}, exists={os.path.exists(filepath)}", flush=True)
+                if os.path.exists(filepath):
+                    image_files.append(filepath)
+
+    # Fallback: scan output directory directly
+    if not image_files:
+        print(f"[OUTPUT] No images from history, scanning {OUTPUT_DIR} directly...", flush=True)
+        if os.path.exists(OUTPUT_DIR):
+            all_files = sorted(os.listdir(OUTPUT_DIR))
+            print(f"[OUTPUT] Files in output dir: {all_files}", flush=True)
+            for f in all_files:
+                if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                    image_files.append(os.path.join(OUTPUT_DIR, f))
+
+    print(f"[OUTPUT] Total image files collected: {len(image_files)}", flush=True)
+
+    video_url = None
+    if image_files:
+        image_files.sort()
+        output_video = os.path.join(OUTPUT_DIR, f"serverless_{prompt_id}.mp4")
+
+        if len(image_files) == 1:
+            # Single image - still convert to short video
+            ffmpeg_cmd = [
+                "ffmpeg", "-y", "-loop", "1", "-i", image_files[0],
+                "-t", "2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart", output_video
+            ]
+        else:
+            # Multiple frames - combine into video
             list_file = os.path.join(OUTPUT_DIR, "frames.txt")
             with open(list_file, 'w') as lf:
                 for img_path in image_files:
                     lf.write(f"file '{img_path}'\n")
-                    lf.write(f"duration {1.0/24}\n")  # 24fps
-
+                    lf.write(f"duration {1.0/16}\n")  # 16fps for wan2.2
             ffmpeg_cmd = [
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0",
                 "-i", list_file,
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
-                output_video
+                "-movflags", "+faststart", output_video
             ]
-            print(f"Running ffmpeg: {' '.join(ffmpeg_cmd)}", flush=True)
-            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"ffmpeg error: {result.stderr}", flush=True)
 
-            if os.path.exists(output_video):
+        print(f"[OUTPUT] Running ffmpeg: {' '.join(ffmpeg_cmd)}", flush=True)
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"[OUTPUT] ffmpeg error: {result.stderr}", flush=True)
+        else:
+            print(f"[OUTPUT] ffmpeg success! Video size: {os.path.getsize(output_video)} bytes", flush=True)
+
+        # Upload to external storage if configured
+        upload_url = os.environ.get("VIDEO_UPLOAD_URL", "")
+        upload_token = os.environ.get("VIDEO_UPLOAD_TOKEN", "")
+        if upload_url and os.path.exists(output_video):
+            try:
                 with open(output_video, "rb") as vf:
-                    encoded_str = base64.b64encode(vf.read()).decode('utf-8')
-                    encoded_videos.append(f"data:video/mp4;base64,{encoded_str}")
-                os.remove(output_video)
+                    video_filename = f"{prompt_id}.mp4"
+                    headers = {}
+                    if upload_token:
+                        headers["Authorization"] = f"Bearer {upload_token}"
+                    upload_resp = requests.post(
+                        upload_url,
+                        files={"file": (video_filename, vf, "video/mp4")},
+                        headers=headers,
+                        timeout=120
+                    )
+                    if upload_resp.status_code == 200:
+                        resp_data = upload_resp.json()
+                        video_url = resp_data.get("url", "")
+                        print(f"[OUTPUT] Uploaded to: {video_url}", flush=True)
+                    else:
+                        print(f"[OUTPUT] Upload failed: {upload_resp.status_code} {upload_resp.text}", flush=True)
+            except Exception as e:
+                print(f"[OUTPUT] Upload error: {e}", flush=True)
 
-            # Cleanup frame images
-            for img_path in image_files:
-                if os.path.exists(img_path):
-                    os.remove(img_path)
-            if os.path.exists(list_file):
-                os.remove(list_file)
+        # Fallback: base64 encode if no upload URL
+        encoded_videos = []
+        if not video_url and os.path.exists(output_video):
+            with open(output_video, "rb") as vf:
+                encoded_str = base64.b64encode(vf.read()).decode('utf-8')
+                encoded_videos.append(f"data:video/mp4;base64,{encoded_str}")
+
+        # Cleanup
+        if os.path.exists(output_video):
+            os.remove(output_video)
+        for img_path in image_files:
+            if os.path.exists(img_path):
+                os.remove(img_path)
+        list_file_path = os.path.join(OUTPUT_DIR, "frames.txt")
+        if os.path.exists(list_file_path):
+            os.remove(list_file_path)
+    else:
+        encoded_videos = []
 
     # Cleanup input image
     input_path = os.path.join(INPUT_DIR, input_filename)
     if os.path.exists(input_path):
         os.remove(input_path)
 
-    return {
+    result = {
         "status": "success",
         "parameters_used": {
             "positive_prompt": pos_prompt,
@@ -325,9 +399,16 @@ def process_job(job):
             "style": style,
             "seed": seed
         },
-        "video_count": len(encoded_videos),
-        "video_base64_array": encoded_videos
+        "video_count": 1 if video_url else len(encoded_videos),
+        "image_count": len(image_files),
     }
+
+    if video_url:
+        result["video_url"] = video_url
+    if encoded_videos:
+        result["video_base64_array"] = encoded_videos
+
+    return result
 
 if __name__ == "__main__":
     print("=" * 60, flush=True)
