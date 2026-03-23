@@ -73,8 +73,9 @@ wget -q --show-progress -nc -O $COMFY_DIR/models/text_encoders/umt5_xxl_fp8_e4m3
 wget -q --show-progress -nc -O $COMFY_DIR/models/loras/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Stable-Video-Infinity/v2.0/SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors?download=true"
 wget -q --show-progress -nc -O $COMFY_DIR/models/loras/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Stable-Video-Infinity/v2.0/SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors?download=true"
 wget -q --show-progress -nc -O $COMFY_DIR/models/loras/wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors "https://huggingface.co/lightx2v/Wan2.2-Distill-Loras/resolve/main/wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors?download=true"
-wget -q --show-progress -nc -O $COMFY_DIR/models/diffusion_models/WAN2.2-NSFW-FastMove-V2-H.safetensors "https://civitai.com/api/download/models/2613591?type=Model&format=SafeTensor&size=pruned&fp=fp16"
-wget -q --show-progress -nc -O $COMFY_DIR/models/diffusion_models/WAN2.2-NSFW-FastMove-V2-L.safetensors "https://civitai.com/api/download/models/2613591?type=Model&format=SafeTensor&size=pruned&fp=fp16"
+echo "🔓 正在通过专属秘钥自动破解防线，极速拉取 C站 15+15GB 高端限制级模型，请稍候 (真实进度条展示)..."
+curl -# -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36" -H "Authorization: Bearer 95f1a54dbe965d73177e8759bd55b6ea" "https://civitai.com/api/download/models/2477539" -o $COMFY_DIR/models/diffusion_models/WAN2.2-NSFW-FastMove-V2-H.safetensors
+curl -# -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36" -H "Authorization: Bearer 95f1a54dbe965d73177e8759bd55b6ea" "https://civitai.com/api/download/models/2477548" -o $COMFY_DIR/models/diffusion_models/WAN2.2-NSFW-FastMove-V2-L.safetensors
 wget -q --show-progress -nc -O $COMFY_DIR/models/loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors?download=true"
 
 echo "✅ 史诗级胜利！彻底执行完成！去网页最右侧控制面板点一下 Refresh (刷新) 即可开始生产！"
