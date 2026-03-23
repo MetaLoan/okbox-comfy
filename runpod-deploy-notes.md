@@ -4,6 +4,21 @@
 
 ---
 
+## ⚡️ 进阶：真·一键无人值守终极部署指令 (RunPod 专供)
+
+为了彻底解决繁琐的环境配置、填平主盘爆满大坑，以及硬核穿透 C 站 (Civitai) 刁钻的 API Key 拦截与 Cloudflare 防爬虫机制，我们已经把所有部署逻辑彻底黑盒化。
+
+在新开的 RunPod 终端（Web Terminal）内，您什么都不用配置，**只需要复制并运行以下这段指令，即可放手不管、全自动完工**：
+
+```bash
+curl -s -L "https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/ultimate_setup.sh?v=\$RANDOM" | bash
+```
+
+> **🌟 温馨提示**：
+> 这个长线脚本内置了**动态副盘嗅探、灾难级错误重试、和底层自动避障重定向挂载**。不论是刚租的纯净机器，还是被装废了的旧环境，跑完后把配套打磨好的 `zzzz_last-60FPS-wan22_workflow_FIXED_V5.json` 甩进去就能点亮全部绿灯，直接开出 60FPS 极速成片！
+
+---
+
 ## 🏗️ 核心底层逻辑与镜像选择
 
 最致命的踩坑：**不要尝试使用任何打包好 ComfyUI 的第三方神仙 Docker 镜像。**
