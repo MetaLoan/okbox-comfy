@@ -13,6 +13,7 @@ import random
 import requests
 import runpod
 import websocket
+import boto3
 
 # Disable cuDNN at runtime level for Blackwell GPU compatibility
 try:
@@ -340,30 +341,31 @@ def process_job(job):
         else:
             print(f"[OUTPUT] ffmpeg success! Video size: {os.path.getsize(output_video)} bytes", flush=True)
 
-        # Upload to external storage if configured
-        upload_url = os.environ.get("VIDEO_UPLOAD_URL", "")
-        upload_token = os.environ.get("VIDEO_UPLOAD_TOKEN", "")
-        if upload_url and os.path.exists(output_video):
+        # Upload to Cloudflare R2 (S3-compatible)
+        r2_account_id = os.environ.get("R2_ACCOUNT_ID", "da42bda8b7dfcd7dfdffa0ae318cc810")
+        r2_access_key = os.environ.get("R2_ACCESS_KEY_ID", "7cfe4bc0684285ebcd5a7b33925a5971")
+        r2_secret_key = os.environ.get("R2_ACCESS_KEY_SECRET", "92a205e7a58c1a4f327c4d490330a95577396ab287dfe564b7c743861a98ca48")
+        r2_bucket = os.environ.get("R2_BUCKET", "candyhub-s")
+        r2_public_url = os.environ.get("R2_PUBLIC_URL", "https://vcdn.sprize.ai")
+
+        if r2_access_key and os.path.exists(output_video):
             try:
-                with open(output_video, "rb") as vf:
-                    video_filename = f"{prompt_id}.mp4"
-                    headers = {}
-                    if upload_token:
-                        headers["Authorization"] = f"Bearer {upload_token}"
-                    upload_resp = requests.post(
-                        upload_url,
-                        files={"file": (video_filename, vf, "video/mp4")},
-                        headers=headers,
-                        timeout=120
-                    )
-                    if upload_resp.status_code == 200:
-                        resp_data = upload_resp.json()
-                        video_url = resp_data.get("url", "")
-                        print(f"[OUTPUT] Uploaded to: {video_url}", flush=True)
-                    else:
-                        print(f"[OUTPUT] Upload failed: {upload_resp.status_code} {upload_resp.text}", flush=True)
+                s3 = boto3.client(
+                    's3',
+                    endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com",
+                    aws_access_key_id=r2_access_key,
+                    aws_secret_access_key=r2_secret_key,
+                    region_name='auto'
+                )
+                r2_key = f"videos/{prompt_id}.mp4"
+                s3.upload_file(
+                    output_video, r2_bucket, r2_key,
+                    ExtraArgs={'ContentType': 'video/mp4'}
+                )
+                video_url = f"{r2_public_url}/{r2_key}"
+                print(f"[OUTPUT] Uploaded to R2: {video_url}", flush=True)
             except Exception as e:
-                print(f"[OUTPUT] Upload error: {e}", flush=True)
+                print(f"[OUTPUT] R2 upload error: {e}", flush=True)
 
         # Fallback: base64 encode if no upload URL
         encoded_videos = []

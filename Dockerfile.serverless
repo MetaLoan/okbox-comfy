@@ -21,7 +21,7 @@ RUN sed -i 's/NVIDIA_MEMORY_CONV_BUG_WORKAROUND = True/NVIDIA_MEMORY_CONV_BUG_WO
 # Install core ComfyUI python dependencies
 RUN pip install -r requirements.txt
 # Install Serverless dependencies
-RUN pip install runpod websocket-client requests sageattention
+RUN pip install runpod websocket-client requests sageattention boto3
 
 # Bridge routing the blank instance's models folder to the persistent Network Volume
 RUN rm -rf /workspace/ComfyUI/models && ln -s /runpod-volume/my_stable_models /workspace/ComfyUI/models
