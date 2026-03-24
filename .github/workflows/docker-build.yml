@@ -6,8 +6,9 @@ on:
       - main
     paths:
       - 'Dockerfile.serverless'
-      - 'runpod_worker.py'
-      - 'dual_wan_i2v_api.json'
+      - 'pythonfiles/runpod_worker.py'
+      - 'workflow/dual_wan_i2v_api.json'
+      - 'doc/extra_model_paths.yaml'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
