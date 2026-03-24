@@ -348,8 +348,12 @@ def process_job(job):
         r2_bucket = os.environ.get("R2_BUCKET", "candyhub-s")
         r2_public_url = os.environ.get("R2_PUBLIC_URL", "https://vcdn.sprize.ai")
 
-        if r2_access_key and os.path.exists(output_video):
+        video_exists = os.path.exists(output_video)
+        print(f"[R2] Pre-upload check: video={output_video}, exists={video_exists}, r2_key_set={bool(r2_access_key)}", flush=True)
+
+        if r2_access_key and video_exists:
             try:
+                print(f"[R2] Connecting to https://{r2_account_id}.r2.cloudflarestorage.com ...", flush=True)
                 s3 = boto3.client(
                     's3',
                     endpoint_url=f"https://{r2_account_id}.r2.cloudflarestorage.com",
@@ -358,14 +362,17 @@ def process_job(job):
                     region_name='auto'
                 )
                 r2_key = f"videos/{prompt_id}.mp4"
+                print(f"[R2] Uploading {os.path.getsize(output_video)} bytes to {r2_bucket}/{r2_key} ...", flush=True)
                 s3.upload_file(
                     output_video, r2_bucket, r2_key,
                     ExtraArgs={'ContentType': 'video/mp4'}
                 )
                 video_url = f"{r2_public_url}/{r2_key}"
-                print(f"[OUTPUT] Uploaded to R2: {video_url}", flush=True)
+                print(f"[R2] Upload SUCCESS: {video_url}", flush=True)
             except Exception as e:
-                print(f"[OUTPUT] R2 upload error: {e}", flush=True)
+                print(f"[R2] Upload FAILED: {type(e).__name__}: {e}", flush=True)
+        else:
+            print(f"[R2] SKIPPED: r2_access_key={bool(r2_access_key)}, video_exists={video_exists}", flush=True)
 
         # Fallback: base64 encode if no upload URL
         encoded_videos = []
