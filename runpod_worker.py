@@ -52,6 +52,7 @@ def start_comfyui():
 
     process = subprocess.Popen(
         ["python", "-u", "main.py", "--listen", "0.0.0.0", "--port", "8188",
+         "--disable-cuda-malloc",
          "--extra-model-paths-config", f"{COMFY_DIR}/extra_model_paths.yaml"],
         cwd=COMFY_DIR,
         stdout=subprocess.PIPE,

@@ -4,6 +4,10 @@ FROM runpod/pytorch:1.0.3-cu1281-torch290-ubuntu2204
 RUN apt-get update && apt-get install -y git ffmpeg tzdata && rm -rf /var/lib/apt/lists/*
 ENV TZ=Asia/Shanghai
 
+# Blackwell GPU (RTX 5090) compatibility: disable cuDNN globally
+ENV TORCH_CUDNN_V8_API_DISABLED=1
+ENV CUDNN_LOGINFO_DBG=0
+
 WORKDIR /workspace
 
 # Install the backbone internal ComfyUI
