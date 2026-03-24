@@ -415,8 +415,17 @@ def process_job(job):
 
 if __name__ == "__main__":
     print("=" * 60, flush=True)
-    print("RunPod Serverless ComfyUI Worker v3", flush=True)
+    print("RunPod Serverless ComfyUI Worker v10", flush=True)
     print("=" * 60, flush=True)
+
+    # GPU driver diagnostic
+    try:
+        smi = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=10)
+        print(smi.stdout, flush=True)
+        if smi.returncode != 0:
+            print(f"[DIAG] nvidia-smi failed: {smi.stderr}", flush=True)
+    except Exception as e:
+        print(f"[DIAG] nvidia-smi error: {e}", flush=True)
 
     ok = start_comfyui()
     if ok:
