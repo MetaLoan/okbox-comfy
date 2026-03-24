@@ -14,6 +14,10 @@ WORKDIR /workspace
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git
 WORKDIR /workspace/ComfyUI
 
+# Blackwell GPU fix: disable NVIDIA_MEMORY_CONV_BUG_WORKAROUND in comfy/ops.py
+# This flag forces direct torch.cudnn_convolution calls which crash on Blackwell GPUs
+RUN sed -i 's/NVIDIA_MEMORY_CONV_BUG_WORKAROUND = True/NVIDIA_MEMORY_CONV_BUG_WORKAROUND = False  # Patched for Blackwell GPU compatibility/' comfy/ops.py
+
 # Install core ComfyUI python dependencies
 RUN pip install -r requirements.txt
 # Install Serverless dependencies
