@@ -27,10 +27,10 @@ RUN pip install runpod websocket-client requests sageattention boto3
 RUN rm -rf /workspace/ComfyUI/models && ln -s /runpod-volume/my_stable_models /workspace/ComfyUI/models
 
 # Copy extra_model_paths.yaml for explicit model scanning of the network volume
-COPY extra_model_paths.yaml /workspace/ComfyUI/extra_model_paths.yaml
+COPY doc/extra_model_paths.yaml /workspace/ComfyUI/extra_model_paths.yaml
 
 # Pull in custom Serverless execution files
-COPY dual_wan_i2v_api.json /workspace/dual_wan_i2v_api.json
-COPY runpod_worker.py /workspace/runpod_worker.py
+COPY workflow/dual_wan_i2v_api.json /workspace/dual_wan_i2v_api.json
+COPY pythonfiles/runpod_worker.py /workspace/runpod_worker.py
 
 CMD ["python", "-u", "/workspace/runpod_worker.py"]
