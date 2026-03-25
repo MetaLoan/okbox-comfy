@@ -10,6 +10,8 @@ import subprocess
 import urllib.error
 import uuid
 import random
+import re
+import copy
 import requests
 import runpod
 import websocket
@@ -172,6 +174,143 @@ def save_base64_image(b64_string, filename="serverless_input.png"):
     print(f"Base64 image saved: {filepath} ({size} bytes)", flush=True)
     return filename
 
+
+def parse_multi_lora_style(style_str):
+    """
+    Parse multi-LoRA style string.
+    
+    Supported formats:
+      - "none"                          → no LoRA
+      - "anime_cumshot"                 → single LoRA, default strength 1.0/1.0 (backward compat)
+      - "anime_cumshot(0.7,0.9)"        → single LoRA with custom high=0.7, low=0.9
+      - "anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)"  → multi-LoRA stacking
+    
+    Returns a list of dicts:
+      [{"name": "anime_cumshot", "high_strength": 0.7, "low_strength": 0.9}, ...]
+    
+    Returns None for style="none" or empty.
+    """
+    style_str = style_str.strip()
+    if not style_str or style_str.lower() == "none":
+        return None
+
+    loras = []
+    # Regex pattern: stylename(high,low) or just stylename
+    # We split on commas that are NOT inside parentheses
+    # First, split by '),' to handle multi-lora
+    parts = re.split(r'\)\s*,\s*', style_str)
+    
+    for i, part in enumerate(parts):
+        part = part.strip()
+        if not part:
+            continue
+        
+        # If not the last part, we stripped the closing ), add it back for uniform parsing
+        # Actually, let's parse more carefully
+        # pattern: name(high,low) or just name
+        match = re.match(r'^([a-zA-Z0-9_]+)\s*\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\)?$', part)
+        if match:
+            name = match.group(1).lower()
+            high_s = float(match.group(2))
+            low_s = float(match.group(3))
+            loras.append({"name": name, "high_strength": high_s, "low_strength": low_s})
+        else:
+            # Could be just a name without parentheses (backward compat for single style)
+            clean = part.strip().rstrip(')').lower()
+            if re.match(r'^[a-zA-Z0-9_]+$', clean):
+                loras.append({"name": clean, "high_strength": 1.0, "low_strength": 1.0})
+            else:
+                raise ValueError(f"Invalid LoRA style format: '{part}'. Expected format: stylename(high,low)")
+    
+    return loras if loras else None
+
+
+def build_multi_lora_graph(graph, lora_list, registry):
+    """
+    Dynamically build multi-LoRA chain in the ComfyUI API workflow.
+    
+    Architecture:
+      High Noise path: UNETLoader(37) → LoRA_A_H → LoRA_B_H → ... → ModelSamplingSD3(54)
+      Low Noise path:  UNETLoader(100) → LoRA_A_L → LoRA_B_L → ... → ModelSamplingSD3(101)
+    
+    Each LoRA uses LoraLoaderModelOnly node with separate strength for high/low noise.
+    """
+    # Remove old single-LoRA nodes if present
+    if "150" in graph:
+        del graph["150"]
+    if "151" in graph:
+        del graph["151"]
+    
+    # Starting node ID for dynamic LoRA nodes (use 200+ range to avoid conflicts)
+    next_node_id = 200
+    
+    # === HIGH NOISE PATH ===
+    # Chain: 37 → lora_h_1 → lora_h_2 → ... → 54
+    prev_high_ref = ["37", 0]  # Start from UNETLoader HIGH output
+    
+    for i, lora in enumerate(lora_list):
+        style_name = lora["name"]
+        if style_name not in registry:
+            available = [k for k in registry.keys() if k != "none"]
+            raise ValueError(f"Style '{style_name}' not found. Available styles: {available}")
+        
+        high_file = registry[style_name]["high"]
+        if high_file == "none":
+            continue  # Skip if this style has no high noise LoRA
+        
+        node_id = str(next_node_id)
+        next_node_id += 1
+        
+        graph[node_id] = {
+            "inputs": {
+                "lora_name": high_file,
+                "strength_model": lora["high_strength"],
+                "model": prev_high_ref
+            },
+            "class_type": "LoraLoaderModelOnly"
+        }
+        prev_high_ref = [node_id, 0]
+        print(f"[LORA] HIGH chain [{i+1}]: {style_name} (strength={lora['high_strength']}) → node {node_id}", flush=True)
+    
+    # Wire the last HIGH LoRA output → ModelSamplingSD3 node 54
+    graph["54"]["inputs"]["model"] = prev_high_ref
+    
+    # === LOW NOISE PATH ===
+    # Chain: 100 → lora_l_1 → lora_l_2 → ... → 101
+    prev_low_ref = ["100", 0]  # Start from UNETLoader LOW output
+    
+    for i, lora in enumerate(lora_list):
+        style_name = lora["name"]
+        low_file = registry[style_name]["low"]
+        if low_file == "none":
+            continue  # Skip if this style has no low noise LoRA
+        
+        node_id = str(next_node_id)
+        next_node_id += 1
+        
+        graph[node_id] = {
+            "inputs": {
+                "lora_name": low_file,
+                "strength_model": lora["low_strength"],
+                "model": prev_low_ref
+            },
+            "class_type": "LoraLoaderModelOnly"
+        }
+        prev_low_ref = [node_id, 0]
+        print(f"[LORA] LOW chain  [{i+1}]: {style_name} (strength={lora['low_strength']}) → node {node_id}", flush=True)
+    
+    # Wire the last LOW LoRA output → ModelSamplingSD3 node 101
+    graph["101"]["inputs"]["model"] = prev_low_ref
+    
+    # Log total strength summary
+    total_high = sum(l["high_strength"] for l in lora_list)
+    total_low = sum(l["low_strength"] for l in lora_list)
+    print(f"[LORA] Total strength - HIGH: {total_high:.2f}, LOW: {total_low:.2f} "
+          f"(recommended max ~1.5-2.0 each)", flush=True)
+    
+    return graph
+
+
 def process_job(job):
     job_input = job.get('input', {})
     print(f"Received Serverless payload: {json.dumps(job_input, ensure_ascii=False)[:500]}", flush=True)
@@ -198,7 +337,7 @@ def process_job(job):
     frames = job_input.get('frames', 81)
     width = job_input.get('width', 480)
     height = job_input.get('height', 832)
-    style = job_input.get('style', 'none').lower()
+    style = job_input.get('style', 'none')
     image_url = job_input.get('image_url', '')
     image_base64 = job_input.get('image_base64', '')
     seed = job_input.get('seed', random.randint(1, 2**53))
@@ -233,21 +372,34 @@ def process_job(job):
     graph["102"]["inputs"]["noise_seed"] = seed
     graph["103"]["inputs"]["noise_seed"] = seed + 1
 
-    # Handle LoRA style
-    if style == "none" or style == "":
+    # ========== Handle LoRA style (v2.0 multi-LoRA support) ==========
+    try:
+        lora_list = parse_multi_lora_style(style)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    if lora_list is None:
+        # No LoRA: bypass LoRA nodes, wire UNET directly to ModelSampling
         graph["54"]["inputs"]["model"] = ["37", 0]
         graph["101"]["inputs"]["model"] = ["100", 0]
         if "150" in graph: del graph["150"]
         if "151" in graph: del graph["151"]
+        print(f"[LORA] No LoRA applied (style='none')", flush=True)
     else:
+        # Load registry
         try:
             if not os.path.exists(REGISTRY_PATH):
                 print(f"Registry not found, auto-building default at {REGISTRY_PATH}", flush=True)
                 os.makedirs(os.path.dirname(REGISTRY_PATH), exist_ok=True)
                 default_registry = {
+                    "none": {"high": "none", "low": "none"},
                     "anime_cumshot": {
                         "high": "23High_noise-Cumshot_Aesthetics.safetensors",
                         "low": "56Low_noise-Cumshot_Aesthetics.safetensors"
+                    },
+                    "massage_tits": {
+                        "high": "mql_massage_tits_wan22_i2v_v1_high_noise.safetensors",
+                        "low": "mql_massage_tits_wan22_i2v_v1_low_noise.safetensors"
                     }
                 }
                 with open(REGISTRY_PATH, 'w', encoding='utf-8') as rf:
@@ -256,14 +408,22 @@ def process_job(job):
             with open(REGISTRY_PATH, 'r', encoding='utf-8') as f:
                 registry = json.load(f)
 
-            if style in registry:
-                graph["150"]["inputs"]["lora_name"] = registry[style]['high']
-                graph["151"]["inputs"]["lora_name"] = registry[style]['low']
-            else:
-                available = list(registry.keys())
-                return {"error": f"Style '{style}' not found. Available styles: {available}"}
+            graph = build_multi_lora_graph(graph, lora_list, registry)
+            
+            print(f"[LORA] Multi-LoRA chain built: {[l['name'] for l in lora_list]} "
+                  f"({len(lora_list)} LoRAs stacked)", flush=True)
+
+        except ValueError as e:
+            return {"error": str(e)}
         except Exception as e:
-            return {"error": f"Registry error: {str(e)}"}
+            return {"error": f"Registry/LoRA error: {str(e)}"}
+
+    # Build style summary for response
+    style_summary = style
+    if lora_list:
+        style_summary = ",".join(
+            f"{l['name']}({l['high_strength']},{l['low_strength']})" for l in lora_list
+        )
 
     # Submit to ComfyUI
     prompt_id, client_id = queue_prompt(graph)
@@ -406,12 +566,19 @@ def process_job(job):
             "frames": frames,
             "width": width,
             "height": height,
-            "style": style,
+            "style": style_summary,
             "seed": seed
         },
         "video_count": 1 if video_url else len(encoded_videos),
         "image_count": len(image_files),
     }
+
+    # Include LoRA details in response
+    if lora_list:
+        result["lora_stack"] = [
+            {"name": l["name"], "high_strength": l["high_strength"], "low_strength": l["low_strength"]}
+            for l in lora_list
+        ]
 
     if video_url:
         result["video_url"] = video_url
@@ -422,7 +589,7 @@ def process_job(job):
 
 if __name__ == "__main__":
     print("=" * 60, flush=True)
-    print("RunPod Serverless ComfyUI Worker v10", flush=True)
+    print("RunPod Serverless ComfyUI Worker v2.0-multilora", flush=True)
     print("=" * 60, flush=True)
 
     # GPU driver diagnostic

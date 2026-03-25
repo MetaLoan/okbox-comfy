@@ -2,3 +2,9 @@ key.env
 *.env
 deploy_wan_nsfw.sh
 *.zip
+.DS_Store
+doc/benchmark_concurrent.py
+pythonfiles/test_serverless.py
+pythonfiles/test_serverless_local.py
+pythonfiles/test_serverless_remote.py
+pythonfiles/test_video_10s_lora.py

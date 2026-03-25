@@ -2,7 +2,8 @@
 
 > 基于 RunPod Serverless 的 Wan2.2 视频生成 API
 >
-> 最后更新: 2026-03-23
+> 最后更新: 2026-03-25
+> 版本: v2.0 Multi-LoRA
 
 ---
 
@@ -57,7 +58,7 @@ Authorization: Bearer {RUNPOD_API_KEY}
     "frames": 81,
     "width": 480,
     "height": 832,
-    "style": "none",
+    "style": "anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)",
     "seed": 12345
   }
 }
@@ -74,14 +75,66 @@ Authorization: Bearer {RUNPOD_API_KEY}
 | `frames` | int | 否 | `81` | 生成帧数。21≈1.3秒, 42≈2.6秒, 81≈5秒 |
 | `width` | int | 否 | `480` | 视频宽度（像素）|
 | `height` | int | 否 | `832` | 视频高度（像素）|
-| `style` | string | 否 | `"none"` | LoRA 风格名称，见 [风格列表](#-可用-lora-风格列表) |
+| `style` | string | 否 | `"none"` | LoRA 风格，支持单选和多 LoRA 叠加，见 [风格参数格式](#-风格参数格式-v20-multi-lora) |
 | `seed` | int | 否 | 随机 | 随机种子，固定值可复现结果 |
 
 > ⚠️ `image_url` 和 `image_base64` 必须提供其中一个作为参考图
 
 ---
 
-## 🎨 可用 LoRA 风格列表
+## 🎨 风格参数格式 (v2.0 Multi-LoRA)
+
+### `style` 参数支持以下格式
+
+| 格式 | 示例 | 说明 |
+|------|------|------|
+| 不使用 LoRA | `"none"` | 默认值，不加载任何 LoRA |
+| 单 LoRA（默认强度） | `"anime_cumshot"` | ⬅️ 向后兼容 v1 格式，High/Low 强度均为 1.0 |
+| 单 LoRA（自定义强度） | `"anime_cumshot(0.7,0.9)"` | High Noise 强度=0.7, Low Noise 强度=0.9 |
+| 多 LoRA 叠加 | `"anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)"` | 按顺序叠加，可无限串联 |
+| 三重叠加 | `"A(0.8,0.5),B(0.3,0.2),C(0.1,0.1)"` | A → B → C 顺序执行 |
+
+### 格式语法
+
+```
+style = "stylename(high_strength,low_strength),stylename2(high,low),..."
+```
+
+- `stylename`: LoRA 风格注册名（见下方已安装列表）
+- `high_strength`: High Noise 模型的 LoRA 强度（浮点数），负责大动作、姿势
+- `low_strength`: Low Noise 模型的 LoRA 强度（浮点数），负责细节、脸部、画质
+
+### ⚠️ LoRA 叠加原则与注意事项
+
+| 原则 | 说明 |
+|------|------|
+| **节点类型** | 使用 `LoraLoaderModelOnly`（不是普通 LoraLoader）|
+| **双路径分离** | High Noise 和 Low Noise 分别独立叠加链 |
+| **High Noise 强度** | 推荐 0.8~1.8，负责大动作/姿势/NSFW 强度 |
+| **Low Noise 强度** | 推荐 0.4~1.0，过高容易模糊/崩坏 |
+| **总强度上限** | 所有 LoRA 加起来别超过 1.5~2.0 |
+| **叠加顺序** | 动作/姿势 LoRA 放前面，细节/画质放后面 |
+| **叠加数量** | 建议 ≤3~4 个，超过容易画质模糊/脸崩 |
+
+### 典型叠加组合推荐
+
+```
+角色 LoRA + NSFW 动作 LoRA + 画质 LoRA
+风格 LoRA + 湿润/液体 LoRA
+```
+
+### 如果出现问题
+
+| 问题 | 解决方案 |
+|------|---------|
+| 画面模糊 | 降低 Low Noise 强度，或降低总强度 (1.0 → 0.7 → 0.5) |
+| 脸崩 | 减少叠加数量，降低 Low Noise 强度 |
+| 动作混乱 | 降低 High Noise 强度总和 |
+| 过曝 | 降低所有 LoRA 强度 |
+
+---
+
+## 📋 可用 LoRA 风格列表
 
 ### 已安装 LoRA 一览
 
@@ -101,14 +154,18 @@ Authorization: Bearer {RUNPOD_API_KEY}
 - High Noise: `23High_noise-Cumshot_Aesthetics.safetensors`
 - Low Noise: `56Low_noise-Cumshot_Aesthetics.safetensors`
 
-**调用方式：**
+**v2.0 调用方式（自定义强度）：**
+```json
+{ "input": { "style": "anime_cumshot(0.8,0.6)", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**v1 兼容调用（默认强度 1.0）：**
 ```json
 { "input": { "style": "anime_cumshot", "positive_prompt": "...", "image_url": "..." } }
 ```
 
 **⚠️ 注意事项：**
 - 仅兼容 Wan2.2 官方 Base Model（不兼容 AIO / 合并模型）
-- LoRA Strength 固定为 1.0
 - 主要作用于面部，胸部/身体为间接溅射效果
 - 约 80% 成功率，偶尔有伪影，多次生成取最佳
 
@@ -134,7 +191,12 @@ Authorization: Bearer {RUNPOD_API_KEY}
 - High Noise: `mql_massage_tits_wan22_i2v_v1_high_noise.safetensors`
 - Low Noise: `mql_massage_tits_wan22_i2v_v1_low_noise.safetensors`
 
-**调用方式：**
+**v2.0 调用方式（自定义强度）：**
+```json
+{ "input": { "style": "massage_tits(0.9,0.5)", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**v1 兼容调用（默认强度 1.0）：**
 ```json
 { "input": { "style": "massage_tits", "positive_prompt": "...", "image_url": "..." } }
 ```
@@ -163,16 +225,24 @@ Authorization: Bearer {RUNPOD_API_KEY}
 { "id": "job-uuid-here", "status": "IN_QUEUE" }
 ```
 
-### 成功（URL 方式，配置了 VIDEO_UPLOAD_URL 时）
+### 成功（URL 方式，配置了 R2 上传时）
 ```json
 {
   "status": "COMPLETED",
   "output": {
     "status": "success",
-    "video_url": "https://okbox-video-storage.fly.dev/v/xxxxx.mp4",
+    "video_url": "https://vcdn.sprize.ai/videos/xxxxx.mp4",
     "video_count": 1,
     "image_count": 41,
-    "parameters_used": { "style": "anime_cumshot", "frames": 42, ... }
+    "parameters_used": {
+      "style": "anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)",
+      "frames": 42,
+      "..."
+    },
+    "lora_stack": [
+      {"name": "anime_cumshot", "high_strength": 0.7, "low_strength": 0.9},
+      {"name": "massage_tits", "high_strength": 0.2, "low_strength": 0.3}
+    ]
   }
 }
 ```
@@ -185,7 +255,7 @@ Authorization: Bearer {RUNPOD_API_KEY}
     "status": "success",
     "video_count": 1,
     "video_base64_array": ["data:video/mp4;base64,..."],
-    "parameters_used": { ... }
+    "parameters_used": { "..." }
   }
 }
 ```
@@ -199,13 +269,12 @@ Authorization: Bearer {RUNPOD_API_KEY}
 
 ## 💻 实际调用案例
 
-> 以下案例基于当前已部署的 Endpoint `dql6hm5rdakt22`
+> 以下案例基于当前已部署的 Endpoint
 
 ### 案例 1: 无 LoRA 基础生成（42帧）
 
 ```bash
-# 提交任务
-curl -X POST "https://api.runpod.ai/v2/dql6hm5rdakt22/run" \
+curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
   -H "Authorization: Bearer $RUNPOD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -219,125 +288,70 @@ curl -X POST "https://api.runpod.ai/v2/dql6hm5rdakt22/run" \
       "height": 832
     }
   }'
-
-# 响应
-# {"id": "4a2c423d-61f4-48b7-8e38-659c5aea2baa-e2", "status": "IN_QUEUE"}
-
-# 轮询状态
-curl "https://api.runpod.ai/v2/dql6hm5rdakt22/status/4a2c423d-61f4-48b7-8e38-659c5aea2baa-e2" \
-  -H "Authorization: Bearer $RUNPOD_API_KEY"
-
-# 成功响应
-# {
-#   "status": "COMPLETED",
-#   "output": {
-#     "status": "success",
-#     "video_count": 1,
-#     "image_count": 41,
-#     "parameters_used": {
-#       "frames": 42, "width": 480, "height": 832,
-#       "style": "none", "seed": 4469877177201263,
-#       "positive_prompt": "...", "negative_prompt": "..."
-#     },
-#     "video_base64_array": ["data:video/mp4;base64,AAAAIGZ0eXBpc29t..."]
-#   }
-# }
 ```
-
-**实测耗时：** ~20 秒（RTX 5090），~30 秒（RTX 4090）
 
 ---
 
-### 案例 2: Anime Cumshot LoRA（42帧）
+### 案例 2: 单 LoRA 自定义强度
 
 ```bash
-curl -X POST "https://api.runpod.ai/v2/dql6hm5rdakt22/run" \
+curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
   -H "Authorization: Bearer $RUNPOD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "input": {
-      "positive_prompt": "A girl is kneeling. A mans penis enters from below. The man is stroking his penis. He ejaculates on her face. The cum is thick and sticky, clinging like paste before sliding off. As her face is hit, she flinches, recoiling slightly, eyes widening in confusion.",
-      "negative_prompt": "ugly, blurry, low resolution, bad hands, deformation",
+      "positive_prompt": "A girl is kneeling...",
       "image_url": "https://files.catbox.moe/9yx65r.png",
-      "style": "anime_cumshot",
+      "style": "anime_cumshot(0.8,0.6)",
+      "frames": 42
+    }
+  }'
+```
+
+---
+
+### 案例 3: 多 LoRA 叠加（v2.0 新功能）
+
+```bash
+curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
+  -H "Authorization: Bearer $RUNPOD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "positive_prompt": "A woman is standing naked. A man walks in...",
+      "negative_prompt": "ugly, blurry, low resolution",
+      "image_url": "https://files.catbox.moe/9yx65r.png",
+      "style": "anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)",
       "frames": 42,
       "width": 480,
       "height": 832
     }
   }'
-
-# 成功响应（实测）
-# {
-#   "status": "COMPLETED",
-#   "executionTime": 18044,
-#   "output": {
-#     "status": "success",
-#     "video_count": 1, "image_count": 41,
-#     "parameters_used": {
-#       "style": "anime_cumshot", "seed": 72060170292103,
-#       "frames": 42, "width": 480, "height": 832
-#     }
-#   }
-# }
 ```
 
-**实测耗时：** ~18 秒
+> 🔗 LoRA 加载链路：
+> - **High Noise**: UNET-H → anime_cumshot(0.7) → massage_tits(0.2) → Sampler
+> - **Low Noise**: UNET-L → anime_cumshot(0.9) → massage_tits(0.3) → Sampler
 
 ---
 
-### 案例 3: Massage Tits LoRA（42帧）
-
-```bash
-curl -X POST "https://api.runpod.ai/v2/dql6hm5rdakt22/run" \
-  -H "Authorization: Bearer $RUNPOD_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": {
-      "positive_prompt": "A woman is standing naked. A man walks in from the right edge of screen. The man stands behind the woman. The man has his hands around the woman from behind and massages her breasts with his hands directly.",
-      "negative_prompt": "ugly, blurry, low resolution, bad hands, deformation",
-      "image_url": "https://files.catbox.moe/9yx65r.png",
-      "style": "massage_tits",
-      "frames": 42,
-      "width": 480,
-      "height": 832
-    }
-  }'
-
-# 成功响应（实测）
-# {
-#   "status": "COMPLETED",
-#   "output": {
-#     "status": "success",
-#     "video_count": 1, "image_count": 41,
-#     "parameters_used": {
-#       "style": "massage_tits", "seed": 7927525759742314,
-#       "frames": 42, "width": 480, "height": 832
-#     }
-#   }
-# }
-```
-
-**实测耗时：** ~30 秒
-
----
-
-### 案例 4: Python 完整调用脚本
+### 案例 4: Python 完整调用脚本（含 Multi-LoRA）
 
 ```python
 import requests, time, base64, os
 
 API_KEY = os.environ.get("RUNPOD_API_KEY", "")
-ENDPOINT_ID = "dql6hm5rdakt22"
+ENDPOINT_ID = "your_endpoint_id"
 BASE = f"https://api.runpod.ai/v2/{ENDPOINT_ID}"
 HEADERS = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
 
-# 1. 提交
+# 1. 提交 - 多 LoRA 叠加
 resp = requests.post(f"{BASE}/run", headers=HEADERS, json={
     "input": {
         "positive_prompt": "A woman dancing gracefully, cinematic",
         "negative_prompt": "ugly, blurry",
         "image_url": "https://files.catbox.moe/9yx65r.png",
-        "style": "none",
+        "style": "anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)",
         "frames": 42
     }
 }, timeout=30)
@@ -352,7 +366,10 @@ while True:
 
     if data["status"] == "COMPLETED":
         output = data["output"]
-        # 视频 URL 方式（配置了 Fly.io 时）
+        # LoRA 叠加详情
+        if output.get("lora_stack"):
+            print(f"LoRA Stack: {output['lora_stack']}")
+        # 视频 URL 方式
         if output.get("video_url"):
             print(f"✅ 下载: {output['video_url']}")
         # Base64 方式
@@ -405,13 +422,9 @@ wget -O "YourLora_Low.safetensors" "https://civitai.com/api/download/models/YYYY
 ls -lh *.safetensors
 ```
 
-> 💡 **如何获取 Model Version ID？** 在 CivitAI 模型页面的下载链接中，`/models/XXXXX` 中的数字就是。或用 API：
-> `curl -s "https://civitai.com/api/v1/models/MODEL_ID" | python3 -c "import json,sys; [print(f'{v[\"name\"]}: {v[\"id\"]}') for v in json.load(sys.stdin)['modelVersions']]"`
-
 ### Step 2: 更新 Network Volume 上的注册表
 
 ```bash
-# 在同一个 Pod 里编辑
 cat > /workspace/my_stable_models/lora_style_registry.json << 'EOF'
 {
   "none": { "high": "none", "low": "none" },
@@ -441,10 +454,6 @@ git commit -m "feat: add your_new_style LoRA"
 git push
 ```
 
-> ⚠️ **为什么要两处都更新？**
-> - Volume 上的注册表 = 运行中的 Worker 实时读取
-> - Git 仓库的注册表 = 新 Docker 镜像打包时嵌入，作为 fallback
-
 ### Step 4: 重启 Workers
 
 在 RunPod Endpoint → Workers 页面：
@@ -456,7 +465,6 @@ git push
 
 ```bash
 python3 test_serverless_remote.py
-# 或修改 test_serverless_remote.py 中的 style 和 prompt 直接测试
 ```
 
 ### Step 6: 更新本文档
@@ -475,9 +483,10 @@ python3 test_serverless_remote.py
 | PyTorch | 2.8.0 |
 | 输出格式 | MP4 (H.264, yuv420p) |
 | 帧率 | 16 FPS |
-| 视频存储 | Fly.io（72小时自动清理）|
-| Docker 镜像 | `ghcr.io/metaloan/okbox-comfy:serverless-v8` |
+| 视频存储 | Cloudflare R2（永久存储）|
+| Docker 镜像 | `ghcr.io/metaloan/okbox-comfy:serverless-multilora-v1` |
 | Network Volume | `unhappy_black_raven` (EU-RO-1) |
+| Worker 版本 | v2.0-multilora |
 
 ---
 
@@ -493,12 +502,15 @@ curl -sL https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/download_mo
 
 ### 2. 创建 Serverless Endpoint
 
-- **Container Image**: `ghcr.io/metaloan/okbox-comfy:serverless-v8`
+- **Container Image**: `ghcr.io/metaloan/okbox-comfy:serverless-multilora-v1`
 - **Network Volume**: 挂载到 `/runpod-volume`
-- **环境变量**（可选，启用视频 URL 回传）：
+- **环境变量**（可选）：
   ```
-  VIDEO_UPLOAD_URL = https://your-video-storage-app.fly.dev/upload
-  VIDEO_UPLOAD_TOKEN = 你生成的随机token
+  R2_ACCOUNT_ID = your_account_id
+  R2_ACCESS_KEY_ID = your_access_key
+  R2_ACCESS_KEY_SECRET = your_secret_key
+  R2_BUCKET = your_bucket
+  R2_PUBLIC_URL = https://your-cdn.example.com
   ```
 
 ### 3. 升级 Docker 镜像
@@ -507,12 +519,32 @@ curl -sL https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/download_mo
 
 ---
 
+## 🆕 v2.0 更新日志
+
+### Multi-LoRA 叠加 (serverless-multilora-v1)
+
+**新特性：**
+- ✅ 支持多 LoRA 叠加：`style="A(0.7,0.9),B(0.2,0.3),C(0.1,0.2)"`
+- ✅ 每个 LoRA 可独立设置 High Noise 和 Low Noise 强度
+- ✅ 无限叠加支持（按顺序串联 LoraLoaderModelOnly 节点）
+- ✅ 完全向后兼容 v1 单 LoRA 格式：`style="anime_cumshot"`
+- ✅ 响应中新增 `lora_stack` 字段，显示 LoRA 叠加详情
+
+**技术实现：**
+- High Noise 路径和 Low Noise 路径分别独立叠加
+- 使用 `LoraLoaderModelOnly` 节点（非普通 LoraLoader）
+- 动态生成节点 ID（200+），避免与固定节点冲突
+- 解析器支持正则匹配：`stylename(high,low)` 格式
+
+---
+
 ## ❌ 常见错误
 
 | 错误信息 | 原因 | 解决方案 |
-|---------|------|---------|
+|---------|------|---------| 
 | `No input image provided` | 未提供参考图 | 添加 `image_url` 或 `image_base64` |
 | `Style 'xxx' not found` | LoRA 未注册 | 检查 Volume 上的 `lora_style_registry.json` |
+| `Invalid LoRA style format` | style 格式错误 | 检查格式：`name(high,low)` |
 | `lora_name: 'xxx' not in []` | LoRA 文件未下载到 Volume | 下载 .safetensors 到 loras 目录 |
 | `ComfyUI rejected the workflow` | 工作流验证失败 | 检查 RunPod Logs |
-| `CUDNN_STATUS_NOT_SUPPORTED` | GPU 不兼容 | 使用 v8+ 镜像（CUDA 12.8）|
+| `CUDNN_STATUS_NOT_SUPPORTED` | GPU 不兼容 | 使用 multilora-v1+ 镜像（CUDA 12.8）|
