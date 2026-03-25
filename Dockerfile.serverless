@@ -32,5 +32,6 @@ COPY doc/extra_model_paths.yaml /workspace/ComfyUI/extra_model_paths.yaml
 # Pull in custom Serverless execution files
 COPY workflow/dual_wan_i2v_api.json /workspace/dual_wan_i2v_api.json
 COPY pythonfiles/runpod_worker.py /workspace/runpod_worker.py
+COPY lora_style_registry.json /workspace/lora_style_registry.json
 
 CMD ["python", "-u", "/workspace/runpod_worker.py"]

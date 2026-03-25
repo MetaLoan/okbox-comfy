@@ -29,6 +29,7 @@ except Exception as e:
 COMFY_URL = "127.0.0.1:8188"
 API_JSON_PATH = "/workspace/dual_wan_i2v_api.json"
 REGISTRY_PATH = "/runpod-volume/my_stable_models/lora_style_registry.json"
+BUNDLED_REGISTRY_PATH = "/workspace/lora_style_registry.json"  # Baked into Docker image
 COMFY_DIR = "/workspace/ComfyUI"
 OUTPUT_DIR = f"{COMFY_DIR}/output"
 INPUT_DIR = f"{COMFY_DIR}/input"
@@ -600,6 +601,19 @@ if __name__ == "__main__":
             print(f"[DIAG] nvidia-smi failed: {smi.stderr}", flush=True)
     except Exception as e:
         print(f"[DIAG] nvidia-smi error: {e}", flush=True)
+
+    # Auto-sync: copy bundled registry to Network Volume
+    if os.path.exists(BUNDLED_REGISTRY_PATH):
+        try:
+            os.makedirs(os.path.dirname(REGISTRY_PATH), exist_ok=True)
+            import shutil
+            shutil.copy2(BUNDLED_REGISTRY_PATH, REGISTRY_PATH)
+            with open(REGISTRY_PATH, 'r') as f:
+                reg = json.load(f)
+            styles = [k for k in reg.keys() if k != 'none']
+            print(f"[SYNC] Registry synced to Volume: {len(styles)} styles → {styles}", flush=True)
+        except Exception as e:
+            print(f"[SYNC] Registry sync failed: {e}", flush=True)
 
     ok = start_comfyui()
     if ok:
