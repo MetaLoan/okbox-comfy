@@ -302,11 +302,11 @@ style = "stylename(high_strength,low_strength),stylename2(high,low),..."
 ```bash
 cd /workspace/my_stable_models/loras/
 
-# 下载 ZIP
+# ===== 1. 下载 ZIP =====
 wget -O "PussyLoRA_Wan2.2_HearmemanAI.zip" \
   "https://civitai.com/api/download/models/2387016?token=YOUR_CIVITAI_TOKEN"
 
-# 解压并提取 safetensors 文件
+# ===== 2. 解压并提取 safetensors 文件 =====
 unzip -o "PussyLoRA_Wan2.2_HearmemanAI.zip"
 
 # 验证解压结果
@@ -314,6 +314,33 @@ ls -lh PussyLoRA_*Wan2.2*.safetensors
 
 # 清理 ZIP
 rm -f "PussyLoRA_Wan2.2_HearmemanAI.zip"
+
+# ===== 3. 顺手更新 Volume 的 registry =====
+# ⚠️ 执行前确保已先同步 Git 仓库的 lora_style_registry.json，防止下次发版被覆盖！
+cat > /workspace/my_stable_models/lora_style_registry.json << 'EOF'
+{
+  "none": { "high": "none", "low": "none" },
+  "anime_cumshot": {
+    "high": "23High_noise-Cumshot_Aesthetics.safetensors",
+    "low": "56Low_noise-Cumshot_Aesthetics.safetensors"
+  },
+  "massage_tits": {
+    "high": "mql_massage_tits_wan22_i2v_v1_high_noise.safetensors",
+    "low": "mql_massage_tits_wan22_i2v_v1_low_noise.safetensors"
+  },
+  "closeup_spread": {
+    "high": "CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors",
+    "low": "CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors"
+  },
+  "pussy_anus": {
+    "high": "PussyLoRA_HighNoise_Wan2.2_HearmemanAI.safetensors",
+    "low": "PussyLoRA_LowNoise_Wan2.2_HearmemanAI.safetensors"
+  }
+}
+EOF
+
+echo "✅ Registry updated:"
+cat /workspace/my_stable_models/lora_style_registry.json
 ```
 
 ---
