@@ -14,5 +14,9 @@
   "closeup_spread": {
     "high": "CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors",
     "low": "CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors"
+  },
+  "pussy_anus": {
+    "high": "PussyLoRA_HighNoise_Wan2.2_HearmemanAI.safetensors",
+    "low": "PussyLoRA_LowNoise_Wan2.2_HearmemanAI.safetensors"
   }
 }

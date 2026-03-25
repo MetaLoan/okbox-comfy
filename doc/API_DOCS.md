@@ -144,6 +144,7 @@ style = "stylename(high_strength,low_strength),stylename2(high,low),..."
 | `"anime_cumshot"` | 增强动漫风格射精场景的密度、精度、冲击力和美学真实感 | [CivitAI #1869475](https://civitai.com/models/1869475) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 | `"massage_tits"` | 从背后按摩/揉捏胸部动作，支持隔衣/内衣/直接接触 | [CivitAI #1952945](https://civitai.com/models/1952945) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 | `"closeup_spread"` | POV 视角近距离展开特写（阴部+肛部），附带 bukkake 效果 | [CivitAI #2426014](https://civitai.com/models/2426014) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
+| `"pussy_anus"` | 阴部/肛部细节 LoRA，支持各种角度和阴毛风格变化 | [CivitAI #2109996](https://civitai.com/models/2109996) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 
 ### 各 LoRA 详细说明
 
@@ -255,6 +256,64 @@ style = "stylename(high_strength,low_strength),stylename2(high,low),..."
 **叠加推荐组合：**
 ```
 "closeup_spread(0.9,0.7),anime_cumshot(0.5,0.3)"  — 展开特写 + 颜射效果
+```
+
+---
+
+#### `pussy_anus` — Wan 2.2 Pussy and Anus LoRA (by HearmemanAI)
+
+**模型文件：**
+- High Noise: `PussyLoRA_HighNoise_Wan2.2_HearmemanAI.safetensors`
+- Low Noise: `PussyLoRA_LowNoise_Wan2.2_HearmemanAI.safetensors`
+- 下载格式：ZIP 压缩包，需解压后使用
+
+**v2.0 调用方式（自定义强度）：**
+```json
+{ "input": { "style": "pussy_anus(0.9,0.7)", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**v1 兼容调用（默认强度 1.0）：**
+```json
+{ "input": { "style": "pussy_anus", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**⚠️ 注意事项：**
+- 仅兼容 Wan2.2 官方 Base Model
+- LoRA 并非完美，但当它工作时效果相当好
+- 触发词主要围绕 `vagina`，**不要使用 `pussy`**（训练时未使用该词）
+- 作者仅在 T2V 上测试过，I2V 未经官方测试（社区验证中）
+- 使用 2×H200 并行训练
+- **推荐分辨率**: Portrait 832×1216
+
+**🎭 触发提示词模板：**
+
+| 类别 | 提示词 |
+|------|--------|
+| 阴毛风格 | `Thick dense pubic hair` / `Shaved vagina` / `Trimmed pubic hair` |
+| 角度 | `shaved vagina from behind` / `vagina from above` / `vagina from below` |
+| 动作 | `She is spreading her labia with her fingers.` |
+
+**叠加推荐组合：**
+```
+"pussy_anus(0.8,0.6),closeup_spread(0.5,0.3)"  — 阴部细节 + 展开特写
+```
+
+**📥 下载脚本（ZIP 需解压）：**
+```bash
+cd /workspace/my_stable_models/loras/
+
+# 下载 ZIP
+wget -O "PussyLoRA_Wan2.2_HearmemanAI.zip" \
+  "https://civitai.com/api/download/models/2387016?token=YOUR_CIVITAI_TOKEN"
+
+# 解压并提取 safetensors 文件
+unzip -o "PussyLoRA_Wan2.2_HearmemanAI.zip"
+
+# 验证解压结果
+ls -lh PussyLoRA_*Wan2.2*.safetensors
+
+# 清理 ZIP
+rm -f "PussyLoRA_Wan2.2_HearmemanAI.zip"
 ```
 
 ---
