@@ -132,7 +132,7 @@ if [ ! -d "$MUSUBI_DIR" ]; then
     cd /workspace
     git clone https://github.com/kohya-ss/musubi-tuner.git
     cd musubi-tuner
-    pip install -r requirements.txt -q
+    pip install -e . -q
     echo "  ✅ musubi-tuner 安装完成"
 else
     cd "$MUSUBI_DIR"
