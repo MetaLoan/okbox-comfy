@@ -145,6 +145,7 @@ style = "stylename(high_strength,low_strength),stylename2(high,low),..."
 | `"massage_tits"` | 从背后按摩/揉捏胸部动作，支持隔衣/内衣/直接接触 | [CivitAI #1952945](https://civitai.com/models/1952945) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 | `"closeup_spread"` | POV 视角近距离展开特写（阴部+肛部），附带 bukkake 效果 | [CivitAI #2426014](https://civitai.com/models/2426014) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 | `"pussy_anus"` | 阴部/肛部细节 LoRA，支持各种角度和阴毛风格变化 | [CivitAI #2109996](https://civitai.com/models/2109996) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
+| `"reverse_suspended"` | 反向悬浮体位性爱动作，女性张腿上下移动 | [CivitAI #1894970](https://civitai.com/models/1894970) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 
 ### 各 LoRA 详细说明
 
@@ -335,6 +336,89 @@ cat > /workspace/my_stable_models/lora_style_registry.json << 'EOF'
   "pussy_anus": {
     "high": "PussyLoRA_HighNoise_Wan2.2_HearmemanAI.safetensors",
     "low": "PussyLoRA_LowNoise_Wan2.2_HearmemanAI.safetensors"
+  }
+}
+EOF
+
+echo "✅ Registry updated:"
+cat /workspace/my_stable_models/lora_style_registry.json
+```
+
+---
+
+#### `reverse_suspended` — Wan 2.2 Reverse Suspended Congress (I2V/T2V)
+
+**模型文件：**
+- High Noise: `reverse_suspended_congress_I2V_high.safetensors`
+- Low Noise: `reverse_suspended_congress_I2V_low.safetensors`
+
+**v2.0 调用方式（自定义强度）：**
+```json
+{ "input": { "style": "reverse_suspended(0.9,0.7)", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**v1 兼容调用（默认强度 1.0）：**
+```json
+{ "input": { "style": "reverse_suspended", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**⚠️ 注意事项：**
+- 仅兼容 Wan2.2 官方 Base Model（I2V 14B）
+- 训练数据主要为 3D 动画（23 个 3 秒视频片段）
+- 由于训练集主要是 3D 动画，生成真人视频经常失败，可尝试在提示词中指定角色种族或描述为 cosplay 视频
+- 可通过提示词控制风格：`real-life video` / `3D CG art` / `2D animation`
+- **推荐参数**: High: 10 steps, CFG 3.5, Shift 6 | Low: 4-5 steps, CFG 1, Shift 6
+
+**🎭 触发提示词模板：**
+
+| 类别 | 提示词 |
+|------|--------|
+| 核心动作 | `A woman is having sex in the reverse_suspended_congress position` |
+| 动作描写 | `She spreads her legs and her body moves up and down, while the man thrusts his penis in and out of her vaginal.` |
+| 风格控制 | `real-life video` / `3D CG art` / `2D animation` / `real-life cosplay video` |
+
+**叠加推荐组合：**
+```
+"reverse_suspended(0.9,0.7),pussy_anus(0.3,0.2)"  — 体位动作 + 阴部细节增强
+```
+
+**📥 下载脚本：**
+```bash
+cd /workspace/my_stable_models/loras/
+
+# ===== 1. 下载 High Noise 和 Low Noise =====
+wget -O "reverse_suspended_congress_I2V_high.safetensors" \
+  "https://civitai.com/api/download/models/2145089?token=YOUR_CIVITAI_TOKEN"
+wget -O "reverse_suspended_congress_I2V_low.safetensors" \
+  "https://civitai.com/api/download/models/2145156?token=YOUR_CIVITAI_TOKEN"
+
+# 验证
+ls -lh reverse_suspended_congress_I2V_*.safetensors
+
+# ===== 2. 顺手更新 Volume 的 registry =====
+# ⚠️ 执行前确保已先同步 Git 仓库的 lora_style_registry.json，防止下次发版被覆盖！
+cat > /workspace/my_stable_models/lora_style_registry.json << 'EOF'
+{
+  "none": { "high": "none", "low": "none" },
+  "anime_cumshot": {
+    "high": "23High_noise-Cumshot_Aesthetics.safetensors",
+    "low": "56Low_noise-Cumshot_Aesthetics.safetensors"
+  },
+  "massage_tits": {
+    "high": "mql_massage_tits_wan22_i2v_v1_high_noise.safetensors",
+    "low": "mql_massage_tits_wan22_i2v_v1_low_noise.safetensors"
+  },
+  "closeup_spread": {
+    "high": "CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors",
+    "low": "CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors"
+  },
+  "pussy_anus": {
+    "high": "PussyLoRA_HighNoise_Wan2.2_HearmemanAI.safetensors",
+    "low": "PussyLoRA_LowNoise_Wan2.2_HearmemanAI.safetensors"
+  },
+  "reverse_suspended": {
+    "high": "reverse_suspended_congress_I2V_high.safetensors",
+    "low": "reverse_suspended_congress_I2V_low.safetensors"
   }
 }
 EOF
