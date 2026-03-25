@@ -143,6 +143,7 @@ style = "stylename(high_strength,low_strength),stylename2(high,low),..."
 | `"none"` | 不使用 LoRA（默认）| 内置 | 所有场景 |
 | `"anime_cumshot"` | 增强动漫风格射精场景的密度、精度、冲击力和美学真实感 | [CivitAI #1869475](https://civitai.com/models/1869475) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 | `"massage_tits"` | 从背后按摩/揉捏胸部动作，支持隔衣/内衣/直接接触 | [CivitAI #1952945](https://civitai.com/models/1952945) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
+| `"closeup_spread"` | POV 视角近距离展开特写（阴部+肛部），附带 bukkake 效果 | [CivitAI #2426014](https://civitai.com/models/2426014) | ⚠️ 仅兼容 Wan2.2 官方 Base Model |
 
 ### 各 LoRA 详细说明
 
@@ -215,6 +216,46 @@ style = "stylename(high_strength,low_strength),stylename2(high,low),..."
 | 隔衣 | `The man stands behind the woman. He massages her breasts with his hands over her clothes.` |
 | 隔内衣 | `He massages her breasts with his hands over her bra.` |
 | 直接 | `He massages her breasts with his hands directly.` |
+
+---
+
+#### `closeup_spread` — Close-up Pussy & Anus POV Hands Spreading (WAN2.2 I2V 14B) +Bukkake
+
+**模型文件：**
+- High Noise: `CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors`
+- Low Noise: `CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors`
+
+**v2.0 调用方式（自定义强度）：**
+```json
+{ "input": { "style": "closeup_spread(0.9,0.7)", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**v1 兼容调用（默认强度 1.0）：**
+```json
+{ "input": { "style": "closeup_spread", "positive_prompt": "...", "image_url": "..." } }
+```
+
+**⚠️ 注意事项：**
+- 仅兼容 Wan2.2 官方 Base Model（I2V 14B）
+- 经过 2000 STEP 训练，无需指定 END 图即可生成细致展开表现
+- 训练数据为真实系素材，用于动漫风格图片时如果感觉过于写实，请降低模型强度
+- 动漫风格推荐强度范围：0.7~0.9（低于 0.7 描画精度会急剧下降）
+- **推荐分辨率**: Portrait 832×1216 ❤️（不推荐 Square 或 Landscape）
+- 训练参数：Clip=5, STEP=2000, Frame Num=42
+
+**🎭 触发提示词模板：**
+
+| 类别 | 提示词 |
+|------|--------|
+| 核心动作 | `The camera zooms in on her pussy. The camera's POV hands spread her pussy and asshole wide open.` |
+| 展开描写 | `Her pussy is stretched very wide. Her asshole is stretched very wide too.` |
+| 细节观察 | `We get a detailed look inside her pussy and asshole.` |
+| Bukkake | `A white slime-like substance splashes over her.` |
+
+**叠加推荐组合：**
+```
+"closeup_spread(0.9,0.7),anime_cumshot(0.5,0.3)"  — 展开特写 + 颜射效果
+```
 
 ---
 
@@ -484,7 +525,7 @@ python3 test_serverless_remote.py
 | 输出格式 | MP4 (H.264, yuv420p) |
 | 帧率 | 16 FPS |
 | 视频存储 | Cloudflare R2（永久存储）|
-| Docker 镜像 | `ghcr.io/metaloan/okbox-comfy:serverless-multilora-v1` |
+| Docker 镜像 | `ghcr.io/metaloan/okbox-comfy:serverless-multilora-v1.01` |
 | Network Volume | `unhappy_black_raven` (EU-RO-1) |
 | Worker 版本 | v2.0-multilora |
 
@@ -502,7 +543,7 @@ curl -sL https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/download_mo
 
 ### 2. 创建 Serverless Endpoint
 
-- **Container Image**: `ghcr.io/metaloan/okbox-comfy:serverless-multilora-v1`
+- **Container Image**: `ghcr.io/metaloan/okbox-comfy:serverless-multilora-v1.01`
 - **Network Volume**: 挂载到 `/runpod-volume`
 - **环境变量**（可选）：
   ```
@@ -521,7 +562,7 @@ curl -sL https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/download_mo
 
 ## 🆕 v2.0 更新日志
 
-### Multi-LoRA 叠加 (serverless-multilora-v1)
+### Multi-LoRA 叠加 (serverless-multilora-v1.01)
 
 **新特性：**
 - ✅ 支持多 LoRA 叠加：`style="A(0.7,0.9),B(0.2,0.3),C(0.1,0.2)"`

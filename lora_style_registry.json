@@ -10,5 +10,9 @@
   "massage_tits": {
     "high": "mql_massage_tits_wan22_i2v_v1_high_noise.safetensors",
     "low": "mql_massage_tits_wan22_i2v_v1_low_noise.safetensors"
+  },
+  "closeup_spread": {
+    "high": "CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors",
+    "low": "CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors"
   }
 }
