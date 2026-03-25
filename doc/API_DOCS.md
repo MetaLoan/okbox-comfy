@@ -429,43 +429,80 @@ while True:
 
 ## 🔧 添加新 LoRA（完整流程）
 
-> ⚠️ **添加 LoRA 需要三个地方同步更新，缺一不可！**
+> ⚠️ **重要原则：Git 仓库的 `lora_style_registry.json` 是主版本！**
+> 
+> 每次新 Worker 启动时，Docker 镜像内置的 registry 会**自动覆盖** Volume 上的 registry。
+> 因此必须**先更新 Git 仓库**，再更新 Volume，否则下次发版 Volume 上的改动会丢失。
 
 ### 完整流程图
 
 ```
-CivitAI 下载 LoRA 文件
-        ↓
-  ① Network Volume: /runpod-volume/my_stable_models/loras/  ← 放 .safetensors 文件
-  ② Network Volume: /runpod-volume/my_stable_models/lora_style_registry.json  ← 注册 style 名
-  ③ Git 仓库: lora_style_registry.json  ← 同步更新（新 Worker 启动时用）
-        ↓
-  重启 Workers（删除旧 Worker，让系统重新分配）
-        ↓
-  测试 API 调用
+  ① 先更新 Git 仓库: lora_style_registry.json  ← 主版本，发版时自动同步到 Volume
+  ② SSH 到 Pod 一条龙操作：
+     - 下载 .safetensors 到 /runpod-volume/my_stable_models/loras/
+     - 顺手更新 Volume 上的 lora_style_registry.json（立即生效）
+         ↓
+  ③ 重启 Workers（删除旧 Worker，让系统重新分配）
+         ↓
+  ④ 测试 API 调用
 ```
 
-### Step 1: 下载 LoRA 文件到 Network Volume
+### Step 1: 先更新 Git 仓库的注册表（⚠️ 必须先做！）
+
+> 🚨 **如果跳过这步直接改 Volume，下次 Docker 镜像发版后你的改动会被覆盖！**
+
+在本地修改 `lora_style_registry.json`，添加新 LoRA 条目：
+
+```json
+{
+  "none": { "high": "none", "low": "none" },
+  "anime_cumshot": {
+    "high": "23High_noise-Cumshot_Aesthetics.safetensors",
+    "low": "56Low_noise-Cumshot_Aesthetics.safetensors"
+  },
+  "massage_tits": {
+    "high": "mql_massage_tits_wan22_i2v_v1_high_noise.safetensors",
+    "low": "mql_massage_tits_wan22_i2v_v1_low_noise.safetensors"
+  },
+  "closeup_spread": {
+    "high": "CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors",
+    "low": "CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors"
+  },
+  "your_new_style": {
+    "high": "YourLora_High.safetensors",
+    "low": "YourLora_Low.safetensors"
+  }
+}
+```
+
+然后提交推送：
+
+```bash
+git add lora_style_registry.json
+git commit -m "feat: add your_new_style LoRA"
+git push
+```
+
+### Step 2: SSH 到 Pod 一条龙操作（下载文件 + 注册）
 
 > Wan2.2 的 LoRA 通常有 **两个文件**：High Noise 和 Low Noise
 
 1. 在 RunPod 开一台 **CPU Pod**（最便宜），挂载 Network Volume `unhappy_black_raven`
-2. 在 Pod Terminal 中执行：
+2. 在 Pod Terminal 中**一条龙执行**：
 
 ```bash
 cd /workspace/my_stable_models/loras/
 
-# 下载（替换 XXXXX/YYYYY 为 CivitAI Model Version ID，TOKEN 为 CivitAI API Token）
+# ===== 1. 下载 LoRA 文件 =====
+# 替换 XXXXX/YYYYY 为 CivitAI Model Version ID，TOKEN 为 CivitAI API Token
 wget -O "YourLora_High.safetensors" "https://civitai.com/api/download/models/XXXXX?token=YOUR_CIVITAI_TOKEN"
 wget -O "YourLora_Low.safetensors" "https://civitai.com/api/download/models/YYYYY?token=YOUR_CIVITAI_TOKEN"
 
-# 验证
+# 验证文件
 ls -lh *.safetensors
-```
 
-### Step 2: 更新 Network Volume 上的注册表
-
-```bash
+# ===== 2. 顺手注册到 Volume 的 registry（与 Git 仓库保持一致）=====
+# ⚠️ 内容必须和 Git 仓库的 lora_style_registry.json 完全一致！
 cat > /workspace/my_stable_models/lora_style_registry.json << 'EOF'
 {
   "none": { "high": "none", "low": "none" },
@@ -477,40 +514,51 @@ cat > /workspace/my_stable_models/lora_style_registry.json << 'EOF'
     "high": "mql_massage_tits_wan22_i2v_v1_high_noise.safetensors",
     "low": "mql_massage_tits_wan22_i2v_v1_low_noise.safetensors"
   },
+  "closeup_spread": {
+    "high": "CloseUpSpreadCreamPai_H_Wan2-2_i2v_A14B.safetensors",
+    "low": "CloseUpSpreadCreamPai_L_Wan2-2_i2v_A14B.safetensors"
+  },
   "your_new_style": {
     "high": "YourLora_High.safetensors",
     "low": "YourLora_Low.safetensors"
   }
 }
 EOF
+
+# 验证 registry
+echo "✅ Registry:"
+cat /workspace/my_stable_models/lora_style_registry.json
 ```
 
-### Step 3: 同步更新 Git 仓库的注册表
+> 💡 **为什么要在 Volume 上也更新？** 因为这样**不需要等 Docker 镜像重新构建**就能立即使用新 LoRA。
+> Worker 启动时会用 Docker 镜像内的 registry 覆盖 Volume 上的，所以只要 Git 仓库已同步，就不会丢失。
 
-在本地修改 `lora_style_registry.json`（与 Volume 上保持一致），然后：
-
-```bash
-git add lora_style_registry.json
-git commit -m "feat: add your_new_style LoRA"
-git push
-```
-
-### Step 4: 重启 Workers
+### Step 3: 重启 Workers
 
 在 RunPod Endpoint → Workers 页面：
 1. 删除所有现有 Workers
 2. 等系统自动分配新 Worker
-3. 新 Worker 启动后会扫描 `/runpod-volume/my_stable_models/loras/` 发现新文件
+3. 新 Worker 启动时会自动同步 registry 到 Volume（从 Docker 镜像内）
 
-### Step 5: 测试
+### Step 4: 测试
 
 ```bash
 python3 test_serverless_remote.py
 ```
 
-### Step 6: 更新本文档
+### Step 5: 更新本文档
 
 在上方 [已安装 LoRA 一览](#已安装-lora-一览) 表格中添加新行，并添加对应的详细说明章节。
+
+> **📋 Registry 同步机制总结：**
+> 
+> | 来源 | 路径 | 角色 |
+> |------|------|------|
+> | Git 仓库 | `lora_style_registry.json` | 🏠 **主版本**（打包进 Docker 镜像）|
+> | Docker 镜像 | `/workspace/lora_style_registry.json` | 📦 构建时从 Git 复制 |
+> | Network Volume | `/runpod-volume/my_stable_models/lora_style_registry.json` | 🔄 运行时由 Worker 自动从镜像同步 |
+> 
+> **数据流向：** Git → Docker 镜像 → Worker 启动时自动覆盖 Volume
 
 ---
 
