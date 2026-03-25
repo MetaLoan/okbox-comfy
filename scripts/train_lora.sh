@@ -118,8 +118,11 @@ if [ -z "$VAE" ]; then
 fi
 echo "  ✅ VAE: $(basename $VAE)"
 
-# 查找 T5 text encoder
-T5=$(find "${VOLUME_BASE}" -name "*t5*" -o -name "*umt5*" -type f 2>/dev/null | grep -i "\.pth$\|\.safetensors$" | head -1)
+# 查找 T5 text encoder（优先 safetensors）
+T5=$(find "${VOLUME_BASE}" \( -name "*t5*" -o -name "*umt5*" \) -type f 2>/dev/null | grep -i "\.safetensors$" | head -1)
+if [ -z "$T5" ]; then
+    T5=$(find "${VOLUME_BASE}" \( -name "*t5*" -o -name "*umt5*" \) -type f 2>/dev/null | grep -i "\.pth$" | head -1)
+fi
 if [ -z "$T5" ]; then
     echo "⚠️  找不到 T5 模型，将尝试自动下载..."
 fi
