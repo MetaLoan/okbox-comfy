@@ -1,0 +1,116 @@
+# 竞品 I2V LoRA 训练平台拆解分析
+
+## 截图关键信息提取
+
+### Configuration（配置区）
+| 字段 | 值 | 分析 |
+|------|------|------|
+| Task name | `New Template #3352` | 已有 3352 个模板/任务，说明规模不小 |
+| Prompt | 单一描述性文本，≥100 字符 | **单 prompt 训练法**，不是逐视频标注 |
+| Duration | 5s / 8s 二选一 | 对应 Wan2.2 的 81 帧(≈5s) 和 ~128 帧(≈8s) @ 16fps |
+
+### Requirements（训练要求）
+| 项目 | 要求 | 分析 |
+|------|------|------|
+| 训练视频 | **10-20 个** | 小样本 LoRA fine-tuning，跟 CivitAI 上的 LoRA 训练量级一致 |
+| 视频格式 | **从静态图到运动视频的过渡剪辑** | 🔑 **核心发现！** 下面详细分析 |
+| 视频长度 | 3-5 秒 | 精确匹配 Wan2.2 的生成长度 |
+| 分辨率 | ≥360p | 低于 Wan2.2 的 480p 推理分辨率，训练时可能做上采样 |
+| 文件大小 | ≤20MB | 合理限制 |
+| 测试图片 | 3-6 张 | 用作 I2V 的起始帧验证 |
+| 费用 | 300 Credits (折后) | 商业化定价 |
+
+---
+
+## 🔑 核心发现：I2V 训练数据的制作方式
+
+> **"Upload 10-20 videos showing transition cuts from still picture to motion video"**
+
+这句话揭示了他们 **I2V LoRA 训练的关键方法论**：
+
+### 训练数据结构
+```
+训练视频 = 第1帧是静态图（模拟 I2V 输入） → 后续帧是运动序列（模拟 I2V 输出）
+```
+
+这意味着每个训练视频实际上是一个 **I2V 推理过程的 ground truth**：
+```
+Frame 0: 静止画面（起始图，相当于用户上传的参考图）
+Frame 1~N: 从静止逐渐过渡到目标动作（相当于模型需要生成的视频）
+```
+
+### 为什么这样做？
+
+普通的视频 LoRA 训练（T2V）：
+```
+输入: 文本 prompt → 输出: 完整视频
+训练数据: 任意视频片段 + 文本描述
+```
+
+I2V 特化的 LoRA 训练：
+```
+输入: 第1帧图片 + 文本 prompt → 输出: 后续运动帧
+训练数据: 必须以「静止画面→运动」格式呈现
+```
+
+这就是为什么他们强调 **"transition cuts from still picture to motion video"** — 
+训练数据本身就要模拟 I2V 的工作模式。
+
+---
+
+## 完整训练流水线推测
+
+```
+用户上传:
+├── 1 个文本 prompt（描述动作，≥100字符）
+├── 10-20 个训练视频（静态→动态过渡）
+└── 3-6 张测试图片（验证用起始帧）
+    ↓
+后端处理:
+├── 视频预处理（统一分辨率、帧率、长度）
+├── 提取每个视频的第1帧作为 condition image
+├── 使用 Wan2.2 I2V 架构进行 LoRA fine-tuning
+│   ├── High Noise LoRA（控制大动作/姿势）
+│   └── Low Noise LoRA（控制细节/画质）
+├── 训练完成后用测试图片做 I2V 推理验证
+└── 输出 .safetensors 文件（High + Low 两个）
+    ↓
+用户使用:
+├── 上传任意起始图片
+├── 使用训练好的 LoRA 生成视频
+└── 视频中的动作/风格与训练数据一致
+```
+
+---
+
+## 训练参数推测
+
+基于 CivitAI 上公开的 Wan2.2 LoRA 训练经验：
+
+| 参数 | 推测值 | 依据 |
+|------|--------|------|
+| Base Model | Wan2.2 I2V 14B | 截图明确提到 I2V |
+| LoRA Rank | 64~128 | CivitAI 主流选择 |
+| Training Steps | 1000~2000 | 小数据集常见范围 |
+| Batch Size | 1~2 | 14B 模型显存限制 |
+| Learning Rate | 1e-4 ~ 5e-4 | LoRA 标准范围 |
+| Frame Sampling | 每视频采样 42~81 帧 | 匹配推理帧数 |
+| GPU | 至少 1×H100/A100 80GB | 14B 模型训练需求 |
+| 训练时间 | 预计 1-3 小时 | 小样本 LoRA |
+
+---
+
+## 对我们产品的启示
+
+### 1. 我们可以复制这个训练流程
+- 使用 [diffusion-pipe](https://get.runpod.io/diffusion-pipe-template) 或 [Kohya](https://github.com/kohya-ss/sd-scripts) 在 RunPod 上训练
+- 参考 HearmemanAI 的训练指南: https://civitai.com/articles/27705
+
+### 2. 关键差异化
+- 竞品的训练数据要求 **"静态→运动过渡"** 格式，这是 I2V 训练的核心
+- 我们如果做自定义 LoRA 服务，也需要这种数据预处理
+
+### 3. 模板复用能力
+- 他们的 "Template" 概念 = 一个训练好的 LoRA
+- 用户创建模板（训练 LoRA）→ 其他用户使用模板（加载 LoRA 生成视频）
+- 这跟我们 [lora_style_registry.json](file:///Users/leo/runpod/okbox-comfy/lora_style_registry.json) 的设计思路一致
