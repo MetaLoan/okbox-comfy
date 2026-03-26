@@ -7,8 +7,8 @@ MODELS_DIR="${COMFYUI_DIR}/models"
 # Define the models to download
 # Format: "URL|DESTINATION_DIR|FILENAME"
 models=(
-    "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors|${MODELS_DIR}/diffusion_models|qwen_image_edit_2509_fp8_e4m3fn.safetensors"
-    "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors|${MODELS_DIR}/text_encoders|qwen_2.5_vl_7b_fp8_scaled.safetensors"
+    "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors|${MODELS_DIR}/unet|qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+    "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors|${MODELS_DIR}/clip|qwen_2.5_vl_7b_fp8_scaled.safetensors"
     "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors|${MODELS_DIR}/vae|qwen_image_vae.safetensors"
     "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors|${MODELS_DIR}/loras|Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors"
 )
@@ -46,7 +46,7 @@ download_file() {
     fi
 }
 
-echo "🚀 Starting Qwen 2509 Model Downloads..."
+echo "�� Starting Qwen 2509 Model Downloads..."
 
 for entry in "${models[@]}"; do
     IFS='|' read -r url dest filename <<< "$entry"
