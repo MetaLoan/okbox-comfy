@@ -105,15 +105,14 @@ echo "[Step 4/4] 同步 LoRA 注册表 & 模型路径配置..."
 wget -q -O "${BASE}/lora_style_registry.json" "${REGISTRY_URL}"
 echo "  ✅ Registry 已更新"
 
-# 同步 extra_model_paths.yaml（如果 ComfyUI 已安装）
-YAML_DST="/workspace/ComfyUI/extra_model_paths.yaml"
-if [ -d "/workspace/ComfyUI" ]; then
-    wget -q -O "${YAML_DST}" \
-      "https://raw.githubusercontent.com/MetaLoan/okbox-comfy/test2/doc/extra_model_paths.yaml"
-    echo "  ✅ extra_model_paths.yaml 已更新 → ${YAML_DST}"
-else
-    echo "  ⚠️  ComfyUI 未安装，跳过 yaml 更新"
-fi
+# 同步 extra_model_paths.yaml（支持两种安装路径）
+YAML_URL="https://raw.githubusercontent.com/MetaLoan/okbox-comfy/test2/doc/extra_model_paths.yaml"
+for COMFY_PATH in "/workspace/ComfyUI" "/workspace/runpod-slim/ComfyUI"; do
+    if [ -d "$COMFY_PATH" ]; then
+        wget -q -O "${COMFY_PATH}/extra_model_paths.yaml" "$YAML_URL"
+        echo "  ✅ extra_model_paths.yaml → ${COMFY_PATH}"
+    fi
+done
 
 cat "${BASE}/lora_style_registry.json" | python3 -c "
 import json, sys
