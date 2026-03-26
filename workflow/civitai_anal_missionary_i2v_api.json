@@ -21,7 +21,14 @@
   },
   "37": {
     "inputs": {
-      "unet_name": "Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors",
+      "unet_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "100": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
       "weight_dtype": "default"
     },
     "class_type": "UNETLoader"
@@ -34,10 +41,25 @@
     },
     "class_type": "LoraLoaderModelOnly"
   },
+  "151": {
+    "inputs": {
+      "lora_name": "analMissionary_i2v.safetensors",
+      "strength_model": 0.8,
+      "model": ["100", 0]
+    },
+    "class_type": "LoraLoaderModelOnly"
+  },
   "54": {
     "inputs": {
       "shift": 12.0,
       "model": ["150", 0]
+    },
+    "class_type": "ModelSamplingSD3"
+  },
+  "101": {
+    "inputs": {
+      "shift": 12.0,
+      "model": ["151", 0]
     },
     "class_type": "ModelSamplingSD3"
   },
@@ -71,9 +93,9 @@
   },
   "50": {
     "inputs": {
-      "width": 720,
-      "height": 480,
-      "length": 73,
+      "width": 480,
+      "height": 832,
+      "length": 81,
       "batch_size": 1,
       "positive": ["6", 0],
       "negative": ["7", 0],
@@ -83,25 +105,47 @@
     },
     "class_type": "WanImageToVideo"
   },
-  "3": {
+  "102": {
     "inputs": {
-      "seed": 320673504276727,
+      "add_noise": "enable",
+      "noise_seed": 320673504276727,
       "control_after_generate": "randomize",
       "steps": 25,
       "cfg": 6.0,
       "sampler_name": "uni_pc",
       "scheduler": "simple",
-      "denoise": 1.0,
+      "start_at_step": 0,
+      "end_at_step": 13,
+      "return_with_leftover_noise": "enable",
       "model": ["54", 0],
       "positive": ["50", 0],
       "negative": ["50", 1],
       "latent_image": ["50", 2]
     },
-    "class_type": "KSampler"
+    "class_type": "KSamplerAdvanced"
+  },
+  "103": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 320673504276728,
+      "control_after_generate": "randomize",
+      "steps": 25,
+      "cfg": 6.0,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "start_at_step": 13,
+      "end_at_step": 25,
+      "return_with_leftover_noise": "disable",
+      "model": ["101", 0],
+      "positive": ["50", 0],
+      "negative": ["50", 1],
+      "latent_image": ["102", 0]
+    },
+    "class_type": "KSamplerAdvanced"
   },
   "8": {
     "inputs": {
-      "samples": ["3", 0],
+      "samples": ["103", 0],
       "vae": ["39", 0]
     },
     "class_type": "VAEDecode"
