@@ -149,6 +149,8 @@ install_node "ComfyUI-VideoHelperSuite" "https://github.com/Kosinkadink/ComfyUI-
 install_node "ComfyUI-Frame-Interpolation" "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git"
 install_node "cg-use-everywhere" "https://github.com/chrisgoringe/cg-use-everywhere.git"
 install_node "ComfyUI-Easy-Use" "https://github.com/yolain/ComfyUI-Easy-Use.git"
+install_node "fast_video_comfyui" "https://github.com/jax-explorer/fast_video_comfyui.git"
+install_node "comfyui-int-and-float" "https://github.com/danTheMonk/comfyui-int-and-float.git"
 
 echo "  ✅ 自定义节点安装完成"
 
