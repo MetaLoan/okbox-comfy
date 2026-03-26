@@ -144,6 +144,7 @@ install_node() {
 }
 
 install_node "ComfyUI-KJNodes" "https://github.com/kijai/ComfyUI-KJNodes.git"
+install_node "ComfyUI_essentials" "https://github.com/cubiq/ComfyUI_essentials.git"
 install_node "ComfyUI-VideoHelperSuite" "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git"
 install_node "ComfyUI-Frame-Interpolation" "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git"
 install_node "cg-use-everywhere" "https://github.com/chrisgoringe/cg-use-everywhere.git"
