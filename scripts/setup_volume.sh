@@ -143,7 +143,7 @@ wget -q -O "${BASE}/lora_style_registry.json" "${REGISTRY_URL}"
 echo "  ✅ Registry 已更新"
 
 # 同步 extra_model_paths.yaml（支持两种安装路径）
-YAML_URL="https://raw.githubusercontent.com/MetaLoan/okbox-comfy/test2/doc/extra_model_paths.yaml"
+YAML_URL="https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/doc/extra_model_paths.yaml"
 for COMFY_PATH in "/workspace/ComfyUI" "/workspace/runpod-slim/ComfyUI"; do
     if [ -d "$COMFY_PATH" ]; then
         wget -q -O "${COMFY_PATH}/extra_model_paths.yaml" "$YAML_URL"
