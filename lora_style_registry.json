@@ -26,5 +26,9 @@
   "analgirl": {
     "high": "analgirl_high.safetensors",
     "low": "analgirl_low.safetensors"
+  },
+  "anal_missionary": {
+    "high": "analMissionary_i2v.safetensors",
+    "low": "analMissionary_i2v.safetensors"
   }
 }
