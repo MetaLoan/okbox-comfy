@@ -16,7 +16,8 @@ ERRORS=0
 
 BASE="/workspace/my_stable_models"
 REGISTRY_URL="https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/lora_style_registry.json"
-COMFY_ORG="https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_repackaged/resolve/main/split_files"
+COMFY_ORG="https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files"
+KIJAI="https://huggingface.co/Kijai/WanVideo_comfy/resolve/main"
 
 echo "============================================================"
 echo "🚀 Wan2.2 Serverless Volume 部署"
@@ -101,10 +102,10 @@ download_model \
     "${COMFY_ORG}/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
     4294967296 "T5 Text Encoder (~5GB)"
 
-# CLIP Vision（~3.3GB，最小验证 3GB）
+# CLIP Vision（~3.3GB，最小验证 3GB — 来自 Kijai repo）
 download_model \
     "${BASE}/clip_vision/clip_vision_h.safetensors" \
-    "${COMFY_ORG}/clip_vision/clip_vision_h.safetensors" \
+    "${KIJAI}/clip_vision_h.safetensors" \
     3221225472 "CLIP Vision (~3.3GB)"
 
 echo "  ✅ 基础模型下载完成"
