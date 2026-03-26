@@ -11,7 +11,8 @@
 #   4. 同步 lora_style_registry.json
 # ============================================================
 
-set -e
+set -uo pipefail
+ERRORS=0
 
 BASE="/workspace/my_stable_models"
 REGISTRY_URL="https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/lora_style_registry.json"
@@ -63,7 +64,7 @@ download_model() {
     fi
 
     echo "  ⬇️  下载 ${desc}..."
-    wget -q --show-progress -O "$path" "$url"
+    wget -L --show-progress -O "$path" "$url" 2>&1 || true
 
     # 验证下载后大小
     local size=$(get_size "$path")
@@ -72,7 +73,8 @@ download_model() {
     else
         echo "  ❌ 下载失败或文件无效: ${name} ($(numfmt --to=iec $size)，期望 ≥$(numfmt --to=iec $min_bytes))"
         rm -f "$path"
-        return 1
+        ERRORS=$((ERRORS+1))
+        return 0
     fi
 }
 
