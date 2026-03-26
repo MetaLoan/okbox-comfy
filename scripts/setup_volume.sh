@@ -102,11 +102,11 @@ download_model \
     "${COMFY_ORG}/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
     4294967296 "T5 Text Encoder (~5GB)"
 
-# CLIP Vision（~3.3GB，最小验证 3GB — 来自 Kijai repo）
+# CLIP Vision（~1.26GB，来自 Wan 2.1 Comfy-Org repackaged）
 download_model \
     "${BASE}/clip_vision/clip_vision_h.safetensors" \
-    "${KIJAI}/clip_vision_h.safetensors" \
-    3221225472 "CLIP Vision (~3.3GB)"
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors" \
+    1073741824 "CLIP Vision (~1.26GB)"
 
 echo "  ✅ 基础模型下载完成"
 
