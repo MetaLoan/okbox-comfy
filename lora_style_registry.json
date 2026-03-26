@@ -22,5 +22,9 @@
   "reverse_suspended": {
     "high": "reverse_suspended_congress_I2V_high.safetensors",
     "low": "reverse_suspended_congress_I2V_low.safetensors"
+  },
+  "analgirl": {
+    "high": "analgirl_high.safetensors",
+    "low": "analgirl_low.safetensors"
   }
 }
