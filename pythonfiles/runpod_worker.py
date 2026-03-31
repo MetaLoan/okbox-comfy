@@ -175,6 +175,71 @@ def save_base64_image(b64_string, filename="serverless_input.png"):
     print(f"Base64 image saved: {filepath} ({size} bytes)", flush=True)
     return filename
 
+def qwen_faceswap_process(source_img, target_img, prompt, size_str="2048*2048"):
+    print(f"[QWEN] Starting Qwen Faceswap API call with size {size_str}...", flush=True)
+    url = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+    
+    qwen_api_key = os.environ.get("DASHSCOPE_API_KEY")
+    if not qwen_api_key:
+        print("[QWEN ERROR] DASHSCOPE_API_KEY environment variable is not set!", flush=True)
+        return None
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {qwen_api_key}",
+        "X-DashScope-DataInspection": '{"input":"disable", "output": "disable"}'
+    }
+    
+    def format_img(img_val):
+        if img_val.startswith("http"):
+            return img_val
+        elif img_val.startswith("data:"):
+            return img_val
+        else:
+            return f"data:image/jpeg;base64,{img_val}"
+
+    payload = {
+        "model": "qwen-image-2.0-pro",
+        "input": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"image": format_img(source_img)},
+                        {"image": format_img(target_img)},
+                        {"text": prompt}
+                    ]
+                }
+            ]
+        },
+        "parameters": {
+            "n": 1,
+            "negative_prompt": " ",
+            "prompt_extend": True,
+            "watermark": False,
+            "size": size_str
+        }
+    }
+
+    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as response:
+            res = json.loads(response.read().decode('utf-8'))
+            if "output" in res and "choices" in res["output"]:
+                img_url = res['output']['choices'][0]['message']['content'][0]['image']
+                print(f"[QWEN SUCCESS] Got image: {img_url}", flush=True)
+                return img_url
+            else:
+                print(f"[QWEN ERROR] Unexpected response format: {json.dumps(res)}", flush=True)
+                return None
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode('utf-8')
+        print(f"[QWEN ERROR] HTTP {e.code}: {err_body}", flush=True)
+        return None
+    except Exception as e:
+        print(f"[QWEN ERROR] Request failed: {e}", flush=True)
+        return None
+
 
 def parse_multi_lora_style(style_str):
     """
@@ -343,15 +408,49 @@ def process_job(job):
     image_base64 = job_input.get('image_base64', '')
     seed = job_input.get('seed', random.randint(1, 2**53))
 
+    enable_faceswap = job_input.get("enable_faceswap", False)
+    faceswap_source_img = job_input.get("faceswap_source_img", "")
+    faceswap_target_img = job_input.get("faceswap_target_img", "")
+    faceswap_prompt = job_input.get("faceswap_prompt", "")
+
     # Handle input image
     input_filename = None
-    if image_base64:
-        input_filename = save_base64_image(image_base64)
-    elif image_url:
-        input_filename = download_input_image(image_url)
+    if enable_faceswap and faceswap_source_img and faceswap_target_img:
+        print(f"[FACESWAP] Triggering Qwen faceswap process...", flush=True)
+        qwen_result_url = qwen_faceswap_process(
+            faceswap_source_img, 
+            faceswap_target_img, 
+            faceswap_prompt, 
+            size_str=f"{width}*{height}"
+        )
+        if qwen_result_url:
+            input_filename = download_input_image(qwen_result_url, filename=f"qwen_base_{uuid.uuid4().hex[:8]}.png")
+        else:
+            return {"error": "Qwen Faceswap API failed to generate the image."}
+    else:
+        if image_base64:
+            input_filename = save_base64_image(image_base64)
+        elif image_url:
+            input_filename = download_input_image(image_url)
 
     if not input_filename:
-        return {"error": "No input image provided. Please supply 'image_url' or 'image_base64' in the payload."}
+        return {"error": "No input image provided. Please supply 'image_url', 'image_base64' or properly configure faceswap in payload."}
+
+    # [DEBUG & METADATA FIX] Check input image metadata and force pure RGB
+    import PIL.Image
+    import traceback
+    try:
+        input_path = os.path.join(INPUT_DIR, input_filename)
+        with PIL.Image.open(input_path) as img:
+            print(f"[DEBUG-IMAGE] Downloaded image: size={img.size[0]}x{img.size[1]}, mode={img.mode}, format={img.format}", flush=True)
+            if img.mode != 'RGB':
+                print(f"[DEBUG-IMAGE] Converting mode from {img.mode} to RGB to prevent VAE decode corruption.", flush=True)
+                img = img.convert('RGB')
+                img.save(input_path, format="PNG")
+                print(f"[DEBUG-IMAGE] Image sanitized and saved as pure RGB PNG.", flush=True)
+    except Exception as e:
+        print(f"[ERROR-IMAGE] Failed to intercept/parse image metadata: {e}", flush=True)
+        traceback.print_exc()
 
     # Load workflow template
     with open(API_JSON_PATH, 'r', encoding='utf-8') as f:

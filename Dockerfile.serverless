@@ -10,9 +10,10 @@ ENV CUDNN_LOGINFO_DBG=0
 
 WORKDIR /workspace
 
-# Install the backbone internal ComfyUI
+# Install the backbone internal ComfyUI (Pinned to known stable commit from Mar 25 for Blackwell GPU / Wan2)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git
 WORKDIR /workspace/ComfyUI
+RUN git checkout 2a1f4026
 
 # Blackwell GPU fix: disable NVIDIA_MEMORY_CONV_BUG_WORKAROUND in comfy/ops.py
 # This flag forces direct torch.cudnn_convolution calls which crash on Blackwell GPUs
