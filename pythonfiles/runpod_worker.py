@@ -469,6 +469,24 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
     graph["52"]["inputs"]["image"] = input_filename
     if "upload" in graph["52"]["inputs"]:
         del graph["52"]["inputs"]["upload"]
+        
+    # [FIX] Inject an ImageScale node to force the input image to exactly match the target width and height.
+    # This prevents the DiT spatial mismatch ("花屏" / corrupted video) when the Qwen output size is slightly off.
+    graph["252"] = {
+        "inputs": {
+            "upscale_method": "lanczos",
+            "width": width,
+            "height": height,
+            "crop": "center",
+            "image": ["52", 0]
+        },
+        "class_type": "ImageScale"
+    }
+    # Update downstream nodes (CLIPVision Encode, WanImageToVideo) to use the resized image
+    if "51" in graph:
+        graph["51"]["inputs"]["image"] = ["252", 0]
+    if "50" in graph:
+        graph["50"]["inputs"]["start_image"] = ["252", 0]
 
     # Set seed
     graph["102"]["inputs"]["noise_seed"] = seed
