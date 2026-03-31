@@ -477,12 +477,6 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
             # Extract the actual dimensions (snapped to nearest multiple of 16)
             actual_w = (orig_w // 16) * 16
             actual_h = (orig_h // 16) * 16
-            
-            # OVERRIDE the generation width/height to mathematically match the downloaded image!
-            if actual_w != width or actual_h != height:
-                print(f"[DEBUG-IMAGE] Overriding requested dimensions ({width}x{height}) with image's exact dimensions ({actual_w}x{actual_h}) to prevent latent misalignment / 花屏.", flush=True)
-                width = actual_w
-                height = actual_h
                 
             if actual_w != orig_w or actual_h != orig_h:
                 print(f"[DEBUG-IMAGE] WARNING: Input image size {orig_w}x{orig_h} is NOT a multiple of 16! Expect minor edge rounding.", flush=True)
