@@ -454,6 +454,42 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
     if not input_filename:
         return {"error": "No input image provided. Please supply 'image_url', 'image_base64' or enable 'faceswap' in the payload."}
 
+    # [DEBUG & METADATA FIX] Check input image metadata, force RGB, and adapt resolution
+    import PIL.Image
+    import traceback
+    try:
+        input_path = os.path.join(INPUT_DIR, input_filename)
+        with PIL.Image.open(input_path) as img:
+            orig_w, orig_h = img.size
+            orig_mode = img.mode
+            orig_format = img.format
+            print(f"[DEBUG-IMAGE] Downloaded image metadata: size={orig_w}x{orig_h}, mode={orig_mode}, format={orig_format}", flush=True)
+
+            # Strip EXIF and Alpha channels. Ensure purely clean RGB without tricky metadata.
+            if img.mode != 'RGB':
+                print(f"[DEBUG-IMAGE] Converting mode from {img.mode} to RGB to prevent VAE decode corruption.", flush=True)
+                img = img.convert('RGB')
+            
+            # Save it back strictly as a pure standard PNG
+            img.save(input_path, format="PNG")
+            print(f"[DEBUG-IMAGE] Image sanitized and saved as pure RGB PNG.", flush=True)
+
+            # Extract the actual dimensions (snapped to nearest multiple of 16)
+            actual_w = (orig_w // 16) * 16
+            actual_h = (orig_h // 16) * 16
+            
+            # OVERRIDE the generation width/height to mathematically match the downloaded image!
+            if actual_w != width or actual_h != height:
+                print(f"[DEBUG-IMAGE] Overriding requested dimensions ({width}x{height}) with image's exact dimensions ({actual_w}x{actual_h}) to prevent latent misalignment / 花屏.", flush=True)
+                width = actual_w
+                height = actual_h
+                
+            if actual_w != orig_w or actual_h != orig_h:
+                print(f"[DEBUG-IMAGE] WARNING: Input image size {orig_w}x{orig_h} is NOT a multiple of 16! Expect minor edge rounding.", flush=True)
+    except Exception as e:
+        print(f"[ERROR-IMAGE] Failed to intercept/parse image metadata: {e}", flush=True)
+        traceback.print_exc()
+
     # Load workflow template
     with open(API_JSON_PATH, 'r', encoding='utf-8') as f:
         graph = json.load(f)
@@ -470,23 +506,8 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
     if "upload" in graph["52"]["inputs"]:
         del graph["52"]["inputs"]["upload"]
         
-    # [FIX] Inject an ImageScale node to force the input image to exactly match the target width and height.
-    # This prevents the DiT spatial mismatch ("花屏" / corrupted video) when the Qwen output size is slightly off.
-    graph["252"] = {
-        "inputs": {
-            "upscale_method": "lanczos",
-            "width": width,
-            "height": height,
-            "crop": "center",
-            "image": ["52", 0]
-        },
-        "class_type": "ImageScale"
-    }
-    # Update downstream nodes (CLIPVision Encode, WanImageToVideo) to use the resized image
-    if "51" in graph:
-        graph["51"]["inputs"]["image"] = ["252", 0]
-    if "50" in graph:
-        graph["50"]["inputs"]["start_image"] = ["252", 0]
+    # The original Ali image directly feeds into the Wan2.2 conditioning!
+    # Removing any programmatic ComfyUI ImageScale injections.
 
     # Set seed
     graph["102"]["inputs"]["noise_seed"] = seed
