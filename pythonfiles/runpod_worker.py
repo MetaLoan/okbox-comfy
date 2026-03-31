@@ -175,6 +175,65 @@ def save_base64_image(b64_string, filename="serverless_input.png"):
     print(f"Base64 image saved: {filepath} ({size} bytes)", flush=True)
     return filename
 
+def qwen_faceswap_process(source_img, target_img, prompt, size_str="2048*2048"):
+    print(f"[QWEN] Starting Qwen Faceswap API call with size {size_str}...", flush=True)
+    url = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-806abe6f17354365b6bc4e4f6696962c",
+        "X-DashScope-DataInspection": '{"input":"disable", "output": "disable"}'
+    }
+    
+    def format_img(img_val):
+        if img_val.startswith("http"):
+            return img_val
+        elif img_val.startswith("data:"):
+            return img_val
+        else:
+            return f"data:image/jpeg;base64,{img_val}"
+
+    payload = {
+        "model": "qwen-image-2.0-pro",
+        "input": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"image": format_img(source_img)},
+                        {"image": format_img(target_img)},
+                        {"text": prompt}
+                    ]
+                }
+            ]
+        },
+        "parameters": {
+            "n": 1,
+            "negative_prompt": " ",
+            "prompt_extend": True,
+            "watermark": False,
+            "size": size_str
+        }
+    }
+
+    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as response:
+            res = json.loads(response.read().decode('utf-8'))
+            if "output" in res and "choices" in res["output"]:
+                img_url = res['output']['choices'][0]['message']['content'][0]['image']
+                print(f"[QWEN SUCCESS] Got image: {img_url}", flush=True)
+                return img_url
+            else:
+                print(f"[QWEN ERROR] Unexpected response format: {res}", flush=True)
+                return None
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='replace')
+        print(f"[QWEN ERROR] HTTP {e.code}: {error_body}", flush=True)
+        return None
+    except Exception as e:
+        print(f"[QWEN ERROR] {e}", flush=True)
+        return None
 
 def parse_multi_lora_style(style_str):
     """
@@ -343,15 +402,52 @@ def process_job(job):
     image_base64 = job_input.get('image_base64', '')
     seed = job_input.get('seed', random.randint(1, 2**53))
 
+    enable_faceswap = job_input.get('enable_faceswap', False)
+    faceswap_source_img = job_input.get('faceswap_source_img', '')
+    faceswap_target_img = job_input.get('faceswap_target_img', '')
+    
+    default_fs_prompt = """Image 1 may contain one or two people (one male and/or one female).
+Image 2 contains two people: one male and one female.
+Perform gender-matched replacement as follows:
+* If Image 1 contains a male, replace the male person in Image 2 with the exact face identity and full outfit (clothing, hairstyle, hair color, accessories, and overall appearance) from the male in Image 1.
+* If Image 1 contains a female, replace the female person in Image 2 with the exact face identity and full outfit (clothing, hairstyle, hair color, accessories, and overall appearance) from the female in Image 1.
+* If Image 1 contains only one person, replace only the matching-gender person in Image 2 and leave the other person in Image 2 completely unchanged.
+Strictly preserve from Image 2:
+* Exact body poses, hand positions, body orientation, and relative positioning of the people
+* Exact facial expressions, mouth states, eye openness, gaze directions, head angles, and emotional intensity for each replaced person
+* Composition, background, lighting, camera distance, and the entire scene
+Do not change the poses, gestures, interactions between people, or any part of the environment unless the corresponding person is being replaced. Keep the correct number of people. The clothing, hairstyle, hair color, and complete appearance of each replaced person must exactly match the corresponding gender person from Image 1.
+Output a realistic, seamless, high-quality result with natural skin texture, accurate skin tone and lighting consistency, precise edge blending around faces, hairlines, necks, and clothing boundaries. The final image must look like a natural photograph with no visible artifacts or inconsistencies."""
+    
+    faceswap_prompt = job_input.get('faceswap_prompt', default_fs_prompt)
+
     # Handle input image
     input_filename = None
-    if image_base64:
-        input_filename = save_base64_image(image_base64)
-    elif image_url:
-        input_filename = download_input_image(image_url)
+    if enable_faceswap:
+        if not faceswap_source_img or not faceswap_target_img:
+            return {"error": "Faceswap enabled but 'faceswap_source_img' or 'faceswap_target_img' is missing."}
+        
+        # Pass width and height to Qwen API so its output strictly matches target dimensions
+        qwen_result_url = qwen_faceswap_process(
+            faceswap_source_img, 
+            faceswap_target_img, 
+            faceswap_prompt, 
+            size_str=f"{width}*{height}"
+        )
+        
+        if not qwen_result_url:
+            return {"error": "Qwen Faceswap API failed to generate the image."}
+        
+        print(f"[FACESWAP] Downloading result from Qwen...", flush=True)
+        input_filename = download_input_image(qwen_result_url, filename=f"qwen_base_{uuid.uuid4().hex[:8]}.png")
+    else:
+        if image_base64:
+            input_filename = save_base64_image(image_base64)
+        elif image_url:
+            input_filename = download_input_image(image_url)
 
     if not input_filename:
-        return {"error": "No input image provided. Please supply 'image_url' or 'image_base64' in the payload."}
+        return {"error": "No input image provided. Please supply 'image_url', 'image_base64' or enable 'faceswap' in the payload."}
 
     # Load workflow template
     with open(API_JSON_PATH, 'r', encoding='utf-8') as f:
