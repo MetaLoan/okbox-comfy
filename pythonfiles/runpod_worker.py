@@ -471,15 +471,40 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
                 img = img.convert('RGB')
             
             # Save it back strictly as a pure standard PNG
-            img.save(input_path, format="PNG")
-            print(f"[DEBUG-IMAGE] Image sanitized and saved as pure RGB PNG.", flush=True)
-
-            # Extract the actual dimensions (snapped to nearest multiple of 16)
-            actual_w = (orig_w // 16) * 16
-            actual_h = (orig_h // 16) * 16
+            # ----------------------------------------------------------------------------
+            # COMPLETE CROP AND RESIZE ALGORITHM
+            # Wan2 DiT requires the input image tensor to EXACTLY match generating 
+            # width and height, otherwise DiT multi-head attention mismatches -> 花屏
+            # We strictly center-crop and resize the image here natively via PIL.
+            # ----------------------------------------------------------------------------
+            if orig_w != width or orig_h != height:
+                print(f"[DEBUG-IMAGE] Resizing {orig_w}x{orig_h} to exactly {width}x{height} via Center-Crop to ensure Wan2 tensor alignment.", flush=True)
+                target_ratio = width / height
+                orig_ratio = orig_w / orig_h
                 
-            if actual_w != orig_w or actual_h != orig_h:
-                print(f"[DEBUG-IMAGE] WARNING: Input image size {orig_w}x{orig_h} is NOT a multiple of 16! Expect minor edge rounding.", flush=True)
+                if orig_ratio > target_ratio:
+                    # Original is wider than target. Scale so height matches, crop width.
+                    fit_h = height
+                    fit_w = int(height * orig_ratio)
+                else:
+                    # Original is taller than target. Scale so width matches, crop height.
+                    fit_w = width
+                    fit_h = int(width / orig_ratio)
+                
+                img = img.resize((fit_w, fit_h), PIL.Image.Resampling.LANCZOS)
+                
+                # Center crop
+                left = (fit_w - width) / 2
+                top = (fit_h - height) / 2
+                right = (fit_w + width) / 2
+                bottom = (fit_h + height) / 2
+                
+                img = img.crop((left, top, right, bottom))
+                print(f"[DEBUG-IMAGE] Center-crop successful. Final size: {img.size[0]}x{img.size[1]}.", flush=True)
+
+            img.save(input_path, format="PNG")
+            print(f"[DEBUG-IMAGE] Image saved as pure RGB PNG ready strictly for {width}x{height} DiT processing.", flush=True)
+
     except Exception as e:
         print(f"[ERROR-IMAGE] Failed to intercept/parse image metadata: {e}", flush=True)
         traceback.print_exc()
