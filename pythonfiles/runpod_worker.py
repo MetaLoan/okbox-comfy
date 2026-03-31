@@ -179,9 +179,14 @@ def qwen_faceswap_process(source_img, target_img, prompt, size_str="2048*2048"):
     print(f"[QWEN] Starting Qwen Faceswap API call with size {size_str}...", flush=True)
     url = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
     
+    qwen_api_key = os.environ.get("DASHSCOPE_API_KEY")
+    if not qwen_api_key:
+        print("[QWEN ERROR] DASHSCOPE_API_KEY environment variable is not set!", flush=True)
+        return None
+
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer sk-806abe6f17354365b6bc4e4f6696962c",
+        "Authorization": f"Bearer {qwen_api_key}",
         "X-DashScope-DataInspection": '{"input":"disable", "output": "disable"}'
     }
     
