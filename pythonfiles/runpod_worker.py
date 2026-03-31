@@ -230,15 +230,16 @@ def qwen_faceswap_process(source_img, target_img, prompt, size_str="2048*2048"):
                 print(f"[QWEN SUCCESS] Got image: {img_url}", flush=True)
                 return img_url
             else:
-                print(f"[QWEN ERROR] Unexpected response format: {res}", flush=True)
+                print(f"[QWEN ERROR] Unexpected response format: {json.dumps(res)}", flush=True)
                 return None
     except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8', errors='replace')
-        print(f"[QWEN ERROR] HTTP {e.code}: {error_body}", flush=True)
+        err_body = e.read().decode('utf-8')
+        print(f"[QWEN ERROR] HTTP {e.code}: {err_body}", flush=True)
         return None
     except Exception as e:
-        print(f"[QWEN ERROR] {e}", flush=True)
+        print(f"[QWEN ERROR] Request failed: {e}", flush=True)
         return None
+
 
 def parse_multi_lora_style(style_str):
     """
@@ -407,44 +408,25 @@ def process_job(job):
     image_base64 = job_input.get('image_base64', '')
     seed = job_input.get('seed', random.randint(1, 2**53))
 
-    enable_faceswap = job_input.get('enable_faceswap', False)
-    faceswap_source_img = job_input.get('faceswap_source_img', '')
-    faceswap_target_img = job_input.get('faceswap_target_img', '')
-    
-    default_fs_prompt = """Image 1 may contain one or two people (one male and/or one female).
-Image 2 contains two people: one male and one female.
-Perform gender-matched replacement as follows:
-* If Image 1 contains a male, replace the male person in Image 2 with the exact face identity and full outfit (clothing, hairstyle, hair color, accessories, and overall appearance) from the male in Image 1.
-* If Image 1 contains a female, replace the female person in Image 2 with the exact face identity and full outfit (clothing, hairstyle, hair color, accessories, and overall appearance) from the female in Image 1.
-* If Image 1 contains only one person, replace only the matching-gender person in Image 2 and leave the other person in Image 2 completely unchanged.
-Strictly preserve from Image 2:
-* Exact body poses, hand positions, body orientation, and relative positioning of the people
-* Exact facial expressions, mouth states, eye openness, gaze directions, head angles, and emotional intensity for each replaced person
-* Composition, background, lighting, camera distance, and the entire scene
-Do not change the poses, gestures, interactions between people, or any part of the environment unless the corresponding person is being replaced. Keep the correct number of people. The clothing, hairstyle, hair color, and complete appearance of each replaced person must exactly match the corresponding gender person from Image 1.
-Output a realistic, seamless, high-quality result with natural skin texture, accurate skin tone and lighting consistency, precise edge blending around faces, hairlines, necks, and clothing boundaries. The final image must look like a natural photograph with no visible artifacts or inconsistencies."""
-    
-    faceswap_prompt = job_input.get('faceswap_prompt', default_fs_prompt)
+    enable_faceswap = job_input.get("enable_faceswap", False)
+    faceswap_source_img = job_input.get("faceswap_source_img", "")
+    faceswap_target_img = job_input.get("faceswap_target_img", "")
+    faceswap_prompt = job_input.get("faceswap_prompt", "")
 
     # Handle input image
     input_filename = None
-    if enable_faceswap:
-        if not faceswap_source_img or not faceswap_target_img:
-            return {"error": "Faceswap enabled but 'faceswap_source_img' or 'faceswap_target_img' is missing."}
-        
-        # Pass width and height to Qwen API so its output strictly matches target dimensions
+    if enable_faceswap and faceswap_source_img and faceswap_target_img:
+        print(f"[FACESWAP] Triggering Qwen faceswap process...", flush=True)
         qwen_result_url = qwen_faceswap_process(
             faceswap_source_img, 
             faceswap_target_img, 
             faceswap_prompt, 
             size_str=f"{width}*{height}"
         )
-        
-        if not qwen_result_url:
+        if qwen_result_url:
+            input_filename = download_input_image(qwen_result_url, filename=f"qwen_base_{uuid.uuid4().hex[:8]}.png")
+        else:
             return {"error": "Qwen Faceswap API failed to generate the image."}
-        
-        print(f"[FACESWAP] Downloading result from Qwen...", flush=True)
-        input_filename = download_input_image(qwen_result_url, filename=f"qwen_base_{uuid.uuid4().hex[:8]}.png")
     else:
         if image_base64:
             input_filename = save_base64_image(image_base64)
@@ -452,62 +434,7 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
             input_filename = download_input_image(image_url)
 
     if not input_filename:
-        return {"error": "No input image provided. Please supply 'image_url', 'image_base64' or enable 'faceswap' in the payload."}
-
-    # [DEBUG & METADATA FIX] Check input image metadata, force RGB, and adapt resolution
-    import PIL.Image
-    import traceback
-    try:
-        input_path = os.path.join(INPUT_DIR, input_filename)
-        with PIL.Image.open(input_path) as img:
-            orig_w, orig_h = img.size
-            orig_mode = img.mode
-            orig_format = img.format
-            print(f"[DEBUG-IMAGE] Downloaded image metadata: size={orig_w}x{orig_h}, mode={orig_mode}, format={orig_format}", flush=True)
-
-            # Strip EXIF and Alpha channels. Ensure purely clean RGB without tricky metadata.
-            if img.mode != 'RGB':
-                print(f"[DEBUG-IMAGE] Converting mode from {img.mode} to RGB to prevent VAE decode corruption.", flush=True)
-                img = img.convert('RGB')
-            
-            # Save it back strictly as a pure standard PNG
-            # ----------------------------------------------------------------------------
-            # COMPLETE CROP AND RESIZE ALGORITHM
-            # Wan2 DiT requires the input image tensor to EXACTLY match generating 
-            # width and height, otherwise DiT multi-head attention mismatches -> 花屏
-            # We strictly center-crop and resize the image here natively via PIL.
-            # ----------------------------------------------------------------------------
-            if orig_w != width or orig_h != height:
-                print(f"[DEBUG-IMAGE] Resizing {orig_w}x{orig_h} to exactly {width}x{height} via Center-Crop to ensure Wan2 tensor alignment.", flush=True)
-                target_ratio = width / height
-                orig_ratio = orig_w / orig_h
-                
-                if orig_ratio > target_ratio:
-                    # Original is wider than target. Scale so height matches, crop width.
-                    fit_h = height
-                    fit_w = int(height * orig_ratio)
-                else:
-                    # Original is taller than target. Scale so width matches, crop height.
-                    fit_w = width
-                    fit_h = int(width / orig_ratio)
-                
-                img = img.resize((fit_w, fit_h), PIL.Image.Resampling.LANCZOS)
-                
-                # Center crop
-                left = (fit_w - width) / 2
-                top = (fit_h - height) / 2
-                right = (fit_w + width) / 2
-                bottom = (fit_h + height) / 2
-                
-                img = img.crop((left, top, right, bottom))
-                print(f"[DEBUG-IMAGE] Center-crop successful. Final size: {img.size[0]}x{img.size[1]}.", flush=True)
-
-            img.save(input_path, format="PNG")
-            print(f"[DEBUG-IMAGE] Image saved as pure RGB PNG ready strictly for {width}x{height} DiT processing.", flush=True)
-
-    except Exception as e:
-        print(f"[ERROR-IMAGE] Failed to intercept/parse image metadata: {e}", flush=True)
-        traceback.print_exc()
+        return {"error": "No input image provided. Please supply 'image_url', 'image_base64' or properly configure faceswap in payload."}
 
     # Load workflow template
     with open(API_JSON_PATH, 'r', encoding='utf-8') as f:
@@ -524,9 +451,6 @@ Output a realistic, seamless, high-quality result with natural skin texture, acc
     graph["52"]["inputs"]["image"] = input_filename
     if "upload" in graph["52"]["inputs"]:
         del graph["52"]["inputs"]["upload"]
-        
-    # The original Ali image directly feeds into the Wan2.2 conditioning!
-    # Removing any programmatic ComfyUI ImageScale injections.
 
     # Set seed
     graph["102"]["inputs"]["noise_seed"] = seed
