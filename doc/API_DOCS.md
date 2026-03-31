@@ -2,8 +2,8 @@
 
 > 基于 RunPod Serverless 的 Wan2.2 视频生成 API
 >
-> 最后更新: 2026-03-25
-> 版本: v2.0 Multi-LoRA
+> 最后更新: 2026-03-31
+> 版本: v2.1 Multi-LoRA & Qwen Faceswap
 
 ---
 
@@ -59,7 +59,11 @@ Authorization: Bearer {RUNPOD_API_KEY}
     "width": 480,
     "height": 832,
     "style": "anime_cumshot(0.7,0.9),massage_tits(0.2,0.3)",
-    "seed": 12345
+    "seed": 12345,
+    "enable_faceswap": false,
+    "faceswap_source_img": "",
+    "faceswap_target_img": "",
+    "faceswap_prompt": ""
   }
 }
 ```
@@ -70,15 +74,19 @@ Authorization: Bearer {RUNPOD_API_KEY}
 |------|------|------|--------|------|
 | `positive_prompt` | string | 否 | `"High quality anime style, masterpiece"` | 正向提示词，描述视频内容 |
 | `negative_prompt` | string | 否 | `"ugly, deformation"` | 负向提示词 |
-| `image_url` | string | **二选一** | - | 输入参考图片的 URL |
-| `image_base64` | string | **二选一** | - | 输入图片的 Base64 编码 |
+| `image_url` | string | **条件** | - | 标准模式输入图的 URL |
+| `image_base64` | string | **条件** | - | 标准模式输入图的 Base64 编码 |
+| `enable_faceswap` | boolean| 否 | `false` | 是否启用千问 API 同款换脸功能 |
+| `faceswap_source_img` | string | **换脸必填** | - | 换脸提取源（人脸图）URL |
+| `faceswap_target_img` | string | **换脸必填** | - | 换脸目标图（姿势/背景）URL |
+| `faceswap_prompt` | string | 否 | - | 可选，传给千问 API 的换脸补充提示词 |
 | `frames` | int | 否 | `81` | 生成帧数。21≈1.3秒, 42≈2.6秒, 81≈5秒 |
 | `width` | int | 否 | `480` | 视频宽度（像素）|
 | `height` | int | 否 | `832` | 视频高度（像素）|
 | `style` | string | 否 | `"none"` | LoRA 风格，支持单选和多 LoRA 叠加，见 [风格参数格式](#-风格参数格式-v20-multi-lora) |
 | `seed` | int | 否 | 随机 | 随机种子，固定值可复现结果 |
 
-> ⚠️ `image_url` 和 `image_base64` 必须提供其中一个作为参考图
+> ⚠️ 如果 `enable_faceswap` 为 `false`，则 `image_url` 和 `image_base64` 必须提供其中一个。如果为 `true`，则必须提供 `faceswap_source_img` 和 `faceswap_target_img`。
 
 ---
 
@@ -546,7 +554,30 @@ curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
 
 ---
 
-### 案例 4: Python 完整调用脚本（含 Multi-LoRA）
+### 案例 4: 跨模态“千问换脸”组合工作流 (v2.1 新功能)
+
+在云端自动化执行「源图片人脸」覆盖到「目标背景图」的操作，并直接作为初始条件交由 Wan2.2 过渡成视频。
+
+```bash
+curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
+  -H "Authorization: Bearer $RUNPOD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "enable_faceswap": true,
+      "faceswap_source_img": "https://example.com/face_source.jpg",
+      "faceswap_target_img": "https://example.com/body_target.jpg",
+      "faceswap_prompt": "Image 1 target person, Image 2 pose...",
+      "positive_prompt": "Cinematic shot of the person walking",
+      "frames": 81,
+      "style": "none"
+    }
+  }'
+```
+
+---
+
+### 案例 5: Python 完整调用脚本（含 Multi-LoRA）
 
 ```python
 import requests, time, base64, os
@@ -775,6 +806,19 @@ curl -sL https://raw.githubusercontent.com/MetaLoan/okbox-comfy/main/download_mo
 ### 3. 升级 Docker 镜像
 
 修改 `.github/workflows/docker-build.yml` 中的 tag 版本号，push 到 main 分支会自动触发 GitHub Actions 打包。
+
+---
+
+## 🆕 v2.1 更新日志
+
+### Qwen Faceswap & Environment Lock (serverless-multilora-v1.09)
+
+**核心特性：**
+- ✅ **千问图像编辑集成**：新增基于阿里云 DashScope `qwen-image-2.0-pro` 模型的底层端到端重混生成支持。前端传参 `enable_faceswap=true` 即可自动调用阿里接口截取合成初始帧。
+- ✅ **全自动通道净化 (Metadata Stripper)**：针对第三方 API 生成带透明层（Alpha）导致的 ComfyUI VAE 解码器崩溃问题，内置 `PIL Image.convert("RGB")` 数据净化层。
+
+**稳定固化更新：**
+- 🔒 **固定 ComfyUI 核心环境**：`Dockerfile.serverless` 现硬约束主核至 `2a1f4026`（3 月 25 日可用状态），彻底屏蔽官方近期的实验性更新引入的 `NVIDIA_MEMORY_CONV_BUG_WORKAROUND` 失效和视频乱码潜空间崩塌 Bug，确保 Blackwell 和 Ada Lovelace 服务器生命周期绝对稳定。
 
 ---
 
